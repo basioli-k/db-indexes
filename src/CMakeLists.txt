@@ -1,4 +1,11 @@
+
+
+find_package( Boost 1.78 COMPONENTS REQUIRED )
+include_directories( ${Boost_INCLUDE_DIR} )
+
 add_executable(main main.cpp)
+
+target_link_libraries( main LINK_PUBLIC ${Boost_LIBRARIES} )
 
 set_target_properties(
     main
