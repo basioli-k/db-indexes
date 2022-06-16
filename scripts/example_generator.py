@@ -3,6 +3,7 @@ import numpy as np
 from pathlib import Path
 from schema import Dist, Schema
 import struct
+import io
 
 np_to_struct = {
     # np.int8: "b", # for now use only types of size that is a multiple of 4
@@ -38,12 +39,21 @@ class ExampleGenerator:
 
     # appends to a table in a horizontal database
     def _append_to_hor(self, table_path : Path, record : tuple):
-        struct_format = "<" + "".join(np_to_struct[col] for col in self.schema.col_types)
         table_name = (table_path / self.schema.table_name).with_suffix(".hor")
+        rec_count = (table_path / self.schema.table_name).with_suffix(".cnt")
         if not table_name.exists():
-            table_name.open("w")    #create empty file
+            table_name.open("wb")
+            with rec_count.open("wb") as output:
+                output.write(struct.pack("<I", 1))
+        else:
+            with rec_count.open("rb") as output:
+                rec_num = struct.unpack("<I", output.read(np.uint32(0).itemsize))[0]
+            with rec_count.open("wb") as output:
+                rec_num += 1
+                output.write(struct.pack("<I", rec_num))
 
         with table_name.open("ab") as output:
+            struct_format = "<" + "".join(np_to_struct[col] for col in self.schema.col_types)
             output.write(struct.pack(struct_format, *record))
 
     # TODO write this function

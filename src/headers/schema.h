@@ -1,5 +1,6 @@
 #pragma once
 #include <assert.h>
+#include <numeric>
 #include <string>
 #include <vector>
 #include <fstream>
@@ -8,8 +9,6 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
-// TODO remove
-#include <iostream>
 enum class types {
     int32_t,
     uint32_t,
@@ -34,6 +33,25 @@ types get_type(const std::string& str_type) {
         return types::float64;
     else
         throw std::invalid_argument("Unsupported type.");
+}
+
+std::size_t get_size(types type) {
+    switch(type){
+        case types::int32_t:
+            return sizeof(int32_t);
+        case types::uint32_t:
+            return sizeof(uint32_t);
+        case types::int64_t:
+            return sizeof(int64_t);
+        case types::uint64_t:
+            return sizeof(uint64_t);
+        case types::float32:
+            return sizeof(float);
+        case types::float64:
+            return sizeof(double);
+        default:
+            throw std::invalid_argument("Unsupported type.");
+    }
 }
 
 class schema {
@@ -68,4 +86,9 @@ public:
     }
 
     const std::string& get_name() { return _tname; }
+
+    std::size_t row_size() { 
+        auto sum_col = [](std::size_t acc, column& col) { return acc + get_size(col.type); };
+        return std::accumulate(_cols.begin(), _cols.end(), std::size_t(0), sum_col);
+    }
 };
