@@ -1,60 +1,58 @@
-from multiprocessing.sharedctypes import Value
+import struct
 import numpy as np
 from pathlib import Path
-from schema import Schema
+from schema import Dist, Schema
+import struct
 
-cpp_to_np = {
-    "int8_t": np.int8,
-    "uint8_t": np.uint8,
-    "int32_t": np.int32,
-    "uint32_t": np.uint32,
-    "int64_t": np.int64,
-    "uint64_t": np.uint64,
-    "float": np.float32,
-    "double": np.float64
+np_to_struct = {
+    # np.int8: "b", # for now use only types of size that is a multiple of 4
+    # np.uint8: "B",
+    np.int32: "i",
+    np.uint32: "I",
+    np.int64: "q",
+    np.uint64: "Q",
+    np.float32: "f",
+    np.float64: "d" 
 }
 
 class ExampleGenerator:
     def __init__(self, schema : Schema, dists : list):
         self.schema = schema
-        self.dists = tuple(dists)  #distributions
+        self.dists = tuple(Dist(dist, self.schema.col_types[i]) for i, dist in enumerate(dists))  #distributions
 
-    def _resolve_params(self, typ):
-        if issubclass(typ, np.floating):
-            return np.finfo(typ).min, np.finfo(typ).max
-        elif issubclass(typ, np.integer):
-            return np.iinfo(typ).min, np.iinfo(typ).max
-        else:
-            raise ValueError("Unsupported type", typ)
-
-    # TODO support floats and add distributions
+    # TODO add distributions
     def _generate_num(self, index : int):
-        typ = cpp_to_np[self.schema.col_types[index]]
-        params = self._resolve_params(typ)
+        typ = self.schema.col_types[index]
+        params = self.dists[index].params
 
-        if self.dists[index] == "U":
+        if self.dists[index].type == "U":
             return typ(np.random.uniform(*params))
+        elif self.dists[index].type == "G":
+            return typ(np.random.normal(*params))
         else:
-            raise ValueError("Unsupported distribution.")
-        # elif self.dists[index] == "G":
-        #     pass
+            raise ValueError("Unsupported distribution. Distribution", self.dists[index], "was given")
 
     def _generate_record(self):
         record = tuple(self._generate_num(i) for i in range(len(self.schema.col_names)))
         return record
 
-    # TODO write these functions (use struct pack)
-    # appends to a horizontal database
-    def _write_to_hor(self, table_name : Path, record : tuple):
-        pass
+    # appends to a table in a horizontal database
+    def _append_to_hor(self, table_path : Path, record : tuple):
+        struct_format = "<" + "".join(np_to_struct[col] for col in self.schema.col_types)
+        table_name = (table_path / self.schema.table_name).with_suffix(".hor")
+        if not table_name.exists():
+            table_name.open("w")    #create empty file
 
-    # appends to a vertical database
-    def _write_to_ver(self, table_name : Path, record : tuple):
+        with table_name.open("ab") as output:
+            output.write(struct.pack(struct_format, *record))
+
+    # TODO write this function
+    # appends to a table in a vertical database
+    def _append_to_ver(self, table_name : Path, record : tuple):
         pass
 
     def write_records(self, table_path : Path, record_num : int):
         for _ in range(record_num):
             record = self._generate_record()
-            print(record)   # TODO remove
-            self._write_to_hor(table_path, record)
-            self._write_to_ver(table_path, record)
+            self._append_to_hor(table_path, record)
+            self._append_to_ver(table_path, record)

@@ -44,5 +44,6 @@ build
 *.out
 *.app
 
+scripts/__pycache__
 examples
 .vscode

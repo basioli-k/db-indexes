@@ -5,10 +5,10 @@ from schema import Schema
 
 def main():
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("--schema", "-s", help="Schema path.", type=Path)
-    arg_parser.add_argument("--dists", "-d", help="Path to distributions file.", type=Path)
-    arg_parser.add_argument("--table-path", "-t", help="Path to table folder.", type=Path)
-    arg_parser.add_argument("--record-num", "-r", help="Number of records to generate.", type=int)
+    arg_parser.add_argument("--schema", "-s", help="Schema path.", type=Path, required=True)
+    arg_parser.add_argument("--dists", "-d", help="Path to distributions file.", type=Path, required=True)
+    arg_parser.add_argument("--table-path", "-t", help="Path to table folder.", type=Path, required=True)
+    arg_parser.add_argument("--record-num", "-r", help="Number of records to generate.", type=int, required=True)
     
     args = arg_parser.parse_args()
 
