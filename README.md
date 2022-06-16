@@ -9,6 +9,3 @@ Second line is a ; seperated list of : seperated entries representing columns in
 supported
 - uniform (ex.U:1,10)
 - normal (ex.G:100,50)
-
-### Table format
-Tables are stored in binary files with the first four bytes representing the number of records in the table.
