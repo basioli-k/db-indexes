@@ -59,19 +59,20 @@ class ExampleGenerator:
         with table_name.open("ab") as output:
             struct_format = "<" + "".join(np_to_struct[col] for col in self.schema.col_types)
             output.write(struct.pack(struct_format, *record))
+        self._increment_cnt(table_path)
 
-    def _append_to_ver(self, table_name : Path, record : tuple):
-        table_dir = (table_name / self.schema.table_name)
+    def _append_to_ver(self, table_path : Path, record : tuple):
+        table_dir = (table_path / self.schema.table_name)
         table_dir.mkdir(exist_ok=True)
         for i, col_name in enumerate(self.schema.col_names):
             column = (table_dir / col_name).with_suffix(".ver")
             with column.open("ab") as output:
                 struct_format = "<" + np_to_struct[self.schema.col_types[i]]
                 output.write(struct.pack(struct_format, record[i]))
+        self._increment_cnt(table_path)
 
-    def write_records(self, table_path : Path, record_num : int):
+    def write_records(self, hor_table : Path, ver_table : Path, record_num : int):
         for _ in range(record_num):
             record = self._generate_record()
-            self._append_to_hor(table_path, record)
-            self._append_to_ver(table_path, record)
-            self._increment_cnt(table_path)
+            self._append_to_hor(hor_table, record)
+            self._append_to_ver(ver_table, record)

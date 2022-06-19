@@ -47,3 +47,4 @@ build
 scripts/__pycache__
 examples
 .vscode
+.VSCodeCounter
