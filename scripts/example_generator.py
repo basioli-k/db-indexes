@@ -37,12 +37,9 @@ class ExampleGenerator:
         record = tuple(self._generate_num(i) for i in range(len(self.schema.col_names)))
         return record
 
-    # appends to a table in a horizontal database
-    def _append_to_hor(self, table_path : Path, record : tuple):
-        table_name = (table_path / self.schema.table_name).with_suffix(".hor")
+    def _increment_cnt(self, table_path):
         rec_count = (table_path / self.schema.table_name).with_suffix(".cnt")
-        if not table_name.exists():
-            table_name.open("wb")
+        if not rec_count.exists():
             with rec_count.open("wb") as output:
                 output.write(struct.pack("<I", 1))
         else:
@@ -52,17 +49,29 @@ class ExampleGenerator:
                 rec_num += 1
                 output.write(struct.pack("<I", rec_num))
 
+    # appends to a table in a horizontal database
+    def _append_to_hor(self, table_path : Path, record : tuple):
+        table_name = (table_path / self.schema.table_name).with_suffix(".hor")
+        
+        if not table_name.exists():
+            table_name.open("wb")
+
         with table_name.open("ab") as output:
             struct_format = "<" + "".join(np_to_struct[col] for col in self.schema.col_types)
             output.write(struct.pack(struct_format, *record))
 
-    # TODO write this function
-    # appends to a table in a vertical database
     def _append_to_ver(self, table_name : Path, record : tuple):
-        pass
+        table_dir = (table_name / self.schema.table_name)
+        table_dir.mkdir(exist_ok=True)
+        for i, col_name in enumerate(self.schema.col_names):
+            column = (table_dir / col_name).with_suffix(".ver")
+            with column.open("ab") as output:
+                struct_format = "<" + np_to_struct[self.schema.col_types[i]]
+                output.write(struct.pack(struct_format, record[i]))
 
     def write_records(self, table_path : Path, record_num : int):
         for _ in range(record_num):
             record = self._generate_record()
             self._append_to_hor(table_path, record)
             self._append_to_ver(table_path, record)
+            self._increment_cnt(table_path)

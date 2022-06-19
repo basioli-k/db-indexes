@@ -20,9 +20,21 @@ public:
         _count_handler = io_handler(table_path + maybe_backslash +  _schema.get_name() + CNT_SUFF);
     }
 
-    // TODO make more high level, ex. read nth row from file (in this case function would return a row, not use it as buffer)
-    void read(std::vector<int32_t>& buffer, uint32_t size, uint32_t offset = 0) {
-        _table_handler.read(buffer, size, offset);
+    // read rows_num rows, starting at offset row_offset (offset meaning the cardinal number of the row in table)
+    void read_rows(std::vector<row>& rows, uint32_t rows_num, size_t row_offset = 0) {
+        int32_t avail = count() - row_offset;
+        
+        if (avail <= 0) return;
+
+        rows_num = std::min(int32_t(rows_num), avail);
+        rows.reserve(rows.size() + rows_num);
+        auto row_size = _schema.row_size();
+        for (size_t i = 0; i < rows_num; ++i) {
+            std::vector<int32_t> row_data;
+            // row_size / 4 because row_data is a vector of 32 bit ints
+            _table_handler.read(row_data, row_size / 4, row_size * (row_offset++));
+            rows.emplace_back(row_data, _schema);
+        }
     }
 
     void insert(row& new_row) {
@@ -36,11 +48,11 @@ public:
 private:
     void increment_count() {
         uint32_t cnt = count() + 1;
-        _count_handler.write_one(cnt, 0);
+        _count_handler.write_one(cnt);
     }
 
     void decrement_count() {
         uint32_t cnt = count() - 1;
-        _count_handler.write_one(cnt, 0);
+        _count_handler.write_one(cnt);
     }
 };

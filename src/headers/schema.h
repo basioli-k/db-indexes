@@ -87,6 +87,8 @@ public:
 
     const std::string& get_name() { return _tname; }
 
+    // return row_size in bytes
+    // WARNING row size returns number of bytes, row has a vector of 4 byte ints
     std::size_t row_size() { 
         auto sum_col = [](std::size_t acc, column& col) { return acc + get_size(col.type); };
         return std::accumulate(_cols.begin(), _cols.end(), std::size_t(0), sum_col);

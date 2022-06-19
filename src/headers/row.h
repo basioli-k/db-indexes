@@ -6,10 +6,10 @@
 
 class row {
     std::vector<int32_t> _data;
+    schema& _schema;
 public:
-    row() {}
-    row(std::vector<int32_t>& data) : _data(data) {}
-    row(std::initializer_list<int32_t> init) : _data(init) { }
+    // row() {}
+    row(std::vector<int32_t>& data, schema& schema) : _data(std::move(data)), _schema(schema) {}
 
     std::vector<int32_t>& data() { return _data; }
 };
