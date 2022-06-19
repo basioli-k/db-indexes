@@ -51,18 +51,29 @@ public:
         }
     }
 
-    uint32_t count() {
+    void insert(row& new_row) {
+        auto beg = new_row.data().begin();
+
+        for(size_t dim = 0; dim < _schema.col_num(); ++dim) {
+            auto size = get_size(_schema.get_column(dim).type) / 4;
+            _col_handlers[dim].write(beg, size);
+            beg = beg + size;
+        }
+        increment_count();  // TODO only if successful
+    }
+
+    int32_t count() {
         return _count_handler.read_one();
     }
 
 private:
     void increment_count() {
-        uint32_t cnt = count() + 1;
-        _count_handler.write_one(cnt);
+        int32_t cnt = count() + 1;
+        _count_handler.write_one(cnt, 0);
     }
 
     void decrement_count() {
-        uint32_t cnt = count() - 1;
-        _count_handler.write_one(cnt);
+        int32_t cnt = count() - 1;
+        _count_handler.write_one(cnt, 0);
     }
 };

@@ -43,17 +43,17 @@ public:
         increment_count();  // TODO only if successful
     }
 
-    uint32_t count() {
+    int32_t count() {
         return _count_handler.read_one();
     }
 private:
     void increment_count() {
-        uint32_t cnt = count() + 1;
-        _count_handler.write_one(cnt);
+        int32_t cnt = count() + 1;
+        _count_handler.write_one(cnt, 0);
     }
 
     void decrement_count() {
-        uint32_t cnt = count() - 1;
-        _count_handler.write_one(cnt);
+        int32_t cnt = count() - 1;
+        _count_handler.write_one(cnt, 0);
     }
 };

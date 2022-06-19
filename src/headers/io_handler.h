@@ -17,10 +17,10 @@ public:
         _file.read(reinterpret_cast<char*>(buffer.data() + buffer.size() - size), size * sizeof(int32_t));
     }
 
-    uint32_t read_one(size_t offset = 0) {
+    int32_t read_one(size_t offset = 0) {
         _file.seekg(offset);
-        uint32_t count = 0;
-        _file.read(reinterpret_cast<char*>(&count), sizeof(uint32_t));
+        int32_t count = 0;
+        _file.read(reinterpret_cast<char*>(&count), sizeof(int32_t));
         return count;
     }
 
@@ -34,8 +34,18 @@ public:
         _file.write(reinterpret_cast<char*>(buffer.data()), buffer.size() * sizeof(int32_t));
     }
 
-    void write_one(uint32_t element, size_t offset = 0) {
+    void write(std::vector<int32_t>::iterator it, size_t size) {
+        _file.seekg(0, std::ios::end);
+        _file.write(reinterpret_cast<char*>(&(*it)), size * sizeof(int32_t));
+    }
+
+    void write_one(int32_t element, size_t offset) {
         _file.seekg(offset);
+        _file.write(reinterpret_cast<char*>(&element), sizeof(int32_t));
+    }
+    
+    void write_one(int32_t element) {
+        _file.seekg(0, std::ios::end);
         _file.write(reinterpret_cast<char*>(&element), sizeof(int32_t));
     }
 };
