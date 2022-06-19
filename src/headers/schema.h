@@ -87,6 +87,10 @@ public:
 
     const std::string& get_name() { return _tname; }
 
+    const column& get_column(int dim) { return _cols[dim]; }
+
+    std::size_t col_num() { return _cols.size(); }
+
     // return row_size in bytes
     // WARNING row size returns number of bytes, row has a vector of 4 byte ints
     std::size_t row_size() { 
