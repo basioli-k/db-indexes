@@ -6,6 +6,7 @@
 #include "schema.h"
 #include "io_handler.h"
 #include "common.h"
+#include "stopwatch.h"
 
 class hor_table {
     schema _schema;
@@ -30,45 +31,36 @@ public:
         rows.reserve(rows.size() + rows_num);
         auto row_size = _schema.row_size();
 
-        // TODO usporediti je li mozda bolje procitati sve odjednom i onda raspoređivati u retke
-        // vjv je tu problem
-        
-        std::vector<int32_t> data;
-        _table_handler.read(data, rows_num * row_size / 4, row_offset);
+        _table_handler.seekg(row_offset);
 
-        size_t data_index = 0;
-        for (size_t i = 0 ; i < rows_num; ++i) {
-            std::vector<int32_t> row_data;
-            size_t el_num = row_size / 4;
-            row_data.reserve(el_num);
-            while(el_num--) row_data.emplace_back(data[data_index++]);
+        std::vector<int32_t> row_data;
+        for (size_t i = 0; i < rows_num; ++i) {
+            // row_size / 4 because row_data is a vector of 32 bit ints
+            _table_handler.read(row_data, row_size / 4);
             rows.emplace_back(row_data, _schema);
         }
-
-        // for (size_t i = 0; i < rows_num; ++i) {
-        //     std::vector<int32_t> row_data;
-        //     // row_size / 4 because row_data is a vector of 32 bit ints
-        //     _table_handler.read(row_data, row_size / 4, row_size * (row_offset++));
-        //     rows.emplace_back(row_data, _schema);
-        // }
     }
 
     void insert(row& new_row) {
+        _table_handler.seekg_to_end();
         _table_handler.write(new_row.data());
         increment_count();  // TODO only if successful
     }
 
     int32_t count() {
+        _count_handler.seekg(0);
         return _count_handler.read_one();
     }
 private:
     void increment_count() {
         int32_t cnt = count() + 1;
-        _count_handler.write_one(cnt, 0);
+        _count_handler.seekg(0);
+        _count_handler.write_one(cnt);
     }
 
     void decrement_count() {
         int32_t cnt = count() - 1;
-        _count_handler.write_one(cnt, 0);
+        _count_handler.seekg(0);
+        _count_handler.write_one(cnt);
     }
 };

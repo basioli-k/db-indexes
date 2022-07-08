@@ -31,7 +31,8 @@ public:
         cols_num = std::min(int32_t(cols_num), avail);
 
         auto col_size = get_size(_schema.get_column(dim).type);
-        _col_handlers[dim].read(buff, cols_num * col_size / 4, col_offset * col_size);
+        _col_handlers[dim].seekg(col_offset * col_size);
+        _col_handlers[dim].read(buff, cols_num * col_size / 4);
     }
 
     void read_rows(std::vector<row>& rows, uint32_t rows_num, size_t row_offset = 0) {
@@ -42,8 +43,6 @@ public:
         rows_num = std::min(int32_t(rows_num), avail);
         rows.reserve(rows.size() + rows_num);
 
-        // TODO try this
-        // read entire columns and the create row elements
         std::vector<std::vector<int32_t>> cols;
         cols.resize(_col_handlers.size());
         
@@ -57,26 +56,17 @@ public:
 
         // copy to rows
         std::vector<size_t> cols_indexes(cols.size());
+        std::vector<int32_t> row_data;
+        
         for (size_t i = 0; i < rows_num; ++i) {
-            std::vector<int32_t> row_data;
             row_data.reserve(_schema.row_size() / 4);
-
             for (size_t dim = 0 ; dim < cols.size(); ++dim) {
                 auto to_copy = get_size(_schema.get_column(dim).type) / 4;
                 while(to_copy--) row_data.emplace_back(cols[dim][cols_indexes[dim]++]);
             }
-
             rows.emplace_back(row_data, _schema);
+            row_data.clear();
         }
-
-        // // read row by row
-        // for (size_t i = 0; i < rows_num; ++i) {
-        //     std::vector<int32_t> row_data;
-        //     for(size_t dim = 0; dim < _col_handlers.size(); ++dim)
-        //         read_cols(row_data, dim, 1, row_offset);
-        //     row_offset++;
-        //     rows.emplace_back(row_data, _schema);
-        // }
     }
 
     void insert(row& new_row) {
@@ -84,6 +74,7 @@ public:
 
         for(size_t dim = 0; dim < _schema.col_num(); ++dim) {
             auto size = get_size(_schema.get_column(dim).type) / 4;
+            _col_handlers[dim].seekg_to_end();
             _col_handlers[dim].write(beg, size);
             beg = beg + size;
         }
@@ -91,17 +82,20 @@ public:
     }
 
     int32_t count() {
+        _count_handler.seekg(0);
         return _count_handler.read_one();
     }
 
 private:
     void increment_count() {
         int32_t cnt = count() + 1;
-        _count_handler.write_one(cnt, 0);
+        _count_handler.seekg(0);
+        _count_handler.write_one(cnt);
     }
 
     void decrement_count() {
         int32_t cnt = count() - 1;
-        _count_handler.write_one(cnt, 0);
+        _count_handler.seekg_to_end();
+        _count_handler.write_one(cnt);
     }
 };

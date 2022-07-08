@@ -26,8 +26,8 @@ void clear_cache() {
 
 int main(int argc, char **argv) {
     // TODO make this command line argument
-
     clear_cache();
+    
     stopwatch sw;
     hor_table htable("C:/Users/kbasi/git/db-indexes/examples/db-hor");
     ver_table vtable("C:/Users/kbasi/git/db-indexes/examples/db-ver");
