@@ -42,13 +42,41 @@ public:
         rows_num = std::min(int32_t(rows_num), avail);
         rows.reserve(rows.size() + rows_num);
 
+        // TODO try this
+        // read entire columns and the create row elements
+        std::vector<std::vector<int32_t>> cols;
+        cols.resize(_col_handlers.size());
+        
+        // reserve space
+        for (size_t dim = 0 ; dim < cols.size() ; ++dim)
+            cols[dim].reserve(rows_num * get_size(_schema.get_column(dim).type) / 4);
+        
+        // read columns
+        for(size_t dim = 0; dim < cols.size(); ++dim)
+            read_cols(cols[dim], dim, rows_num, row_offset);
+
+        // copy to rows
+        std::vector<size_t> cols_indexes(cols.size());
         for (size_t i = 0; i < rows_num; ++i) {
             std::vector<int32_t> row_data;
-            for(size_t dim = 0; dim < _col_handlers.size(); ++dim)
-                read_cols(row_data, dim, 1, row_offset);
-            row_offset++;
+            row_data.reserve(_schema.row_size() / 4);
+
+            for (size_t dim = 0 ; dim < cols.size(); ++dim) {
+                auto to_copy = get_size(_schema.get_column(dim).type) / 4;
+                while(to_copy--) row_data.emplace_back(cols[dim][cols_indexes[dim]++]);
+            }
+
             rows.emplace_back(row_data, _schema);
         }
+
+        // // read row by row
+        // for (size_t i = 0; i < rows_num; ++i) {
+        //     std::vector<int32_t> row_data;
+        //     for(size_t dim = 0; dim < _col_handlers.size(); ++dim)
+        //         read_cols(row_data, dim, 1, row_offset);
+        //     row_offset++;
+        //     rows.emplace_back(row_data, _schema);
+        // }
     }
 
     void insert(row& new_row) {

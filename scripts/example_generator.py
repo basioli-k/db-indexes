@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 from schema import Dist, Schema
 import struct
-import io
+from tqdm import tqdm
 
 np_to_struct = {
     # np.int8: "b", # for now use only types of size that is a multiple of 4
@@ -72,7 +72,9 @@ class ExampleGenerator:
         self._increment_cnt(table_path)
 
     def write_records(self, hor_table : Path, ver_table : Path, record_num : int):
-        for _ in range(record_num):
+        for _ in tqdm(range(record_num)):
             record = self._generate_record()
-            self._append_to_hor(hor_table, record)
-            self._append_to_ver(ver_table, record)
+            if hor_table:
+                self._append_to_hor(hor_table, record)
+            if ver_table:
+                self._append_to_ver(ver_table, record)

@@ -29,13 +29,28 @@ public:
         rows_num = std::min(int32_t(rows_num), avail);
         rows.reserve(rows.size() + rows_num);
         auto row_size = _schema.row_size();
-        // TODO hocemo li inace procitati nesto vise u io_handlerima, pa odbaciti nepotrebno?
-        for (size_t i = 0; i < rows_num; ++i) {
+
+        // TODO usporediti je li mozda bolje procitati sve odjednom i onda raspoređivati u retke
+        // vjv je tu problem
+        
+        std::vector<int32_t> data;
+        _table_handler.read(data, rows_num * row_size / 4, row_offset);
+
+        size_t data_index = 0;
+        for (size_t i = 0 ; i < rows_num; ++i) {
             std::vector<int32_t> row_data;
-            // row_size / 4 because row_data is a vector of 32 bit ints
-            _table_handler.read(row_data, row_size / 4, row_size * (row_offset++));
+            size_t el_num = row_size / 4;
+            row_data.reserve(el_num);
+            while(el_num--) row_data.emplace_back(data[data_index++]);
             rows.emplace_back(row_data, _schema);
         }
+
+        // for (size_t i = 0; i < rows_num; ++i) {
+        //     std::vector<int32_t> row_data;
+        //     // row_size / 4 because row_data is a vector of 32 bit ints
+        //     _table_handler.read(row_data, row_size / 4, row_size * (row_offset++));
+        //     rows.emplace_back(row_data, _schema);
+        // }
     }
 
     void insert(row& new_row) {
