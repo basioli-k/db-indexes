@@ -91,6 +91,15 @@ public:
 
     std::size_t col_num() { return _cols.size(); }
 
+    int offset(int dim) {
+        assert(dim < _cols.size());
+        int offset = 0;
+        for (int i = 0 ; i < dim; ++i)
+            offset += get_size(_cols[i].type);
+
+        return offset;
+    }
+
     // return row_size in bytes
     // WARNING row size returns number of bytes, row has a vector of 4 byte ints
     std::size_t row_size() { 

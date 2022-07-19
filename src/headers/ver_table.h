@@ -7,14 +7,12 @@
 #include <vector>
 
 
-class ver_table {
-    schema _schema;
+class ver_table : public table {
     std::vector<io_handler> _col_handlers;
     io_handler _count_handler;
 public:
-    ver_table(const std::string& table_path) {
+    ver_table(const std::string& table_path) : table(table_path) {
         auto maybe_backslash = table_path[table_path.size() - 1] == '/' ? "" : "/";
-        _schema = schema(table_path + maybe_backslash + DEFAULT_SCHEMA_NAME);
         _count_handler = io_handler(table_path + maybe_backslash +  _schema.get_name() + CNT_SUFF);
 
         auto col_num = _schema.col_num();

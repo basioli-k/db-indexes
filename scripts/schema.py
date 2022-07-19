@@ -18,6 +18,9 @@ class Schema:
         self.col_types = tuple( cpp_to_np[el.split(":")[0]] for el in layout.split(";") )
         self.col_names = tuple( el.split(":")[1] for el in layout.split(";"))
 
+    def row_size(self):
+        return sum( np.dtype(ct).itemsize for ct in self.col_types)
+
 class Dist:
     def __init__(self, dist, typ):
         split_str = dist.split(":")

@@ -6,17 +6,17 @@
 #include "schema.h"
 #include "io_handler.h"
 #include "common.h"
-#include "stopwatch.h"
+#include "table.h"
 
-class hor_table {
-    schema _schema;
+class hor_table : public table {
     io_handler _table_handler;
     io_handler _count_handler;
 
 public: 
-    hor_table(const std::string& table_path) {
+    hor_table(const std::string& table_path) : table(table_path) {
         auto maybe_backslash = table_path[table_path.size() - 1] == '/' ? "" : "/";
-        _schema = schema(table_path + maybe_backslash + DEFAULT_SCHEMA_NAME);
+        auto tbl = table_path + maybe_backslash +  _schema.get_name() + HOR_TABLE_SUFF;
+        auto cnt = table_path + maybe_backslash +  _schema.get_name() + CNT_SUFF;
         _table_handler = io_handler(table_path + maybe_backslash +  _schema.get_name() + HOR_TABLE_SUFF);
         _count_handler = io_handler(table_path + maybe_backslash +  _schema.get_name() + CNT_SUFF);
     }
