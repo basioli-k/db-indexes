@@ -6,6 +6,7 @@ include_directories( ${Boost_INCLUDE_DIR} )
 add_executable(main main.cpp)
 
 target_link_libraries( main LINK_PUBLIC ${Boost_LIBRARIES} )
+add_compile_definitions(NOMINMAX)
 
 set_target_properties(
     main

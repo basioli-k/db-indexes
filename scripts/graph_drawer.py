@@ -37,7 +37,7 @@ def main():
             bytes_per_t[b].append(b / times[j])
     
     for b in bytes_per_t:
-        bytes_per_t[b] = min(bytes_per_t[b])
+        bytes_per_t[b] = median(bytes_per_t[b])
     
     print(bytes_per_t)
     print(max(bytes_per_t, key=bytes_per_t.get))

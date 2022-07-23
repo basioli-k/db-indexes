@@ -21,6 +21,9 @@ class Schema:
     def row_size(self):
         return sum( np.dtype(ct).itemsize for ct in self.col_types)
 
+    def get_col_size(self, dim):
+        return np.dtype(self.col_types[dim]).itemsize
+
 class Dist:
     def __init__(self, dist, typ):
         split_str = dist.split(":")

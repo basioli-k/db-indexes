@@ -8,7 +8,9 @@ class row {
     std::vector<int32_t> _data;
     schema& _schema;
 public:
-    row(std::vector<int32_t>& data, schema& schema) : _data(std::move(data)), _schema(schema) {}
+    row(std::vector<int32_t>& data, schema& schema) : _data(std::move(data)), _schema(schema) {
+        assert(_data.size() == _schema.row_size() / 4);
+    }
     std::vector<int32_t>& data() { return _data; }
 
     // auto get_val(int dim) {

@@ -6,7 +6,7 @@ import struct
 from tqdm import tqdm
 
 np_to_struct = {
-    # np.int8: "b", # for now use only types of size that is a multiple of 4
+    np.int8: "b", # used to fill the block with zeros if needed
     # np.uint8: "B",
     np.int32: "i",
     np.uint32: "I",
@@ -16,10 +16,14 @@ np_to_struct = {
     np.float64: "d" 
 }
 
+BLOCK_SIZE = 512 # bytes
+
 class ExampleGenerator:
     def __init__(self, schema : Schema, dists : list):
         self.schema = schema
         self.dists = tuple(Dist(dist, self.schema.col_types[i]) for i, dist in enumerate(dists))  #distributions
+        self.hor_block = BLOCK_SIZE
+        self.ver_block = list(BLOCK_SIZE for _ in self.schema.col_names)
 
     # TODO add distributions
     def _generate_nums(self, index : int):
@@ -58,8 +62,17 @@ class ExampleGenerator:
 
         with table_name.open("ab") as output:
             struct_format = "<" + "".join(np_to_struct[col] for col in self.schema.col_types)
+            rsize = self.schema.row_size()
             for record in records:
+                if self.hor_block < rsize:
+                    if self.hor_block:
+                        output.write(struct.pack("<" + "".join(np_to_struct[np.int8] for _ in range(self.hor_block)), 
+                            *(np.int8(0) for _ in range(self.hor_block))))
+                    self.hor_block = BLOCK_SIZE
+
                 output.write(struct.pack(struct_format, *record))
+                self.hor_block -= rsize
+
         self._increment_cnt(table_path, len(records))
 
     def _append_to_ver(self, table_path : Path, records : list):
@@ -69,13 +82,24 @@ class ExampleGenerator:
             column = (table_dir / col_name).with_suffix(".ver")
             with column.open("ab") as output:
                 struct_format = "<" + np_to_struct[self.schema.col_types[i]]
+                col_size = self.schema.get_col_size(i)
                 for record in records:
-                    output.write(struct.pack(struct_format, record[i]))
+                    if self.ver_block[i] >= col_size:
+                        output.write(struct.pack(struct_format, record[i]))
+                        self.ver_block[i] -= col_size
+                    else:
+                        if self.ver_block[i]:
+                            raise Exception("Column size should always divide the block size.")
+                            # output.write(struct.pack("<" + "".join(np_to_struct[np.int8] for _ in range(self.self.ver_block[i])), 
+                            #     *(np.int8(0) for _ in range(self.self.ver_block[i]))))
+                        self.ver_block[i] = BLOCK_SIZE
+                        output.write(struct.pack(struct_format, record[i]))
+
         self._increment_cnt(table_path, len(records))
 
     def write_records(self, hor_table : Path, ver_table : Path, record_num : int):
         rsize = self.schema.row_size()
-        batch_size = 10**8 // rsize     # approx no of records in 100 MB
+        batch_size = 10**8 // rsize     # approx no. of records in 100 MB
         while tqdm(record_num):
             records = self._generate_records(min(batch_size, record_num))
             record_num = max(0, record_num - batch_size)

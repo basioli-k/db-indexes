@@ -1,43 +1,122 @@
 #pragma once
 
 #include <vector>
-#include <fstream>
+#include <windows.h>    // have to include windows.h to build fileapi.h https://stackoverflow.com/questions/4845198/fatal-error-no-target-architecture-in-visual-studio
+#include <fileapi.h>
+#include "common.h"
+
+//Returns the last Win32 error, in string format. Returns an empty string if there is no error.
+static std::string GetLastErrorAsString()
+{
+    // //Get the error message ID, if any.
+    // DWORD errorMessageID = ::GetLastError();
+    // if(errorMessageID == 0) {
+    //     return std::string(); //No error message has been recorded
+    // }
+    
+    // LPSTR messageBuffer = nullptr;
+
+    // //Ask Win32 to give us the string version of that message ID.
+    // //The parameters we pass in, tell Win32 to create the buffer that holds the message for us (because we don't yet know how long the message string will be).
+    // size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+    //                              NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+    
+    // //Copy the error message into a std::string.
+    // std::string message(messageBuffer, size);
+    
+    // //Free the Win32's string's buffer.
+    // LocalFree(messageBuffer);
+            
+    // return message;
+    return "";
+}
 
 class io_handler{
-    std::fstream _file;
+    HANDLE _file;
+    std::string name;
 public:
-    io_handler() {}
-    io_handler(const std::string& file_path) : _file(file_path, std::ios::binary | std::ios::in | std::ios::out) { }
+    // io_handler() {}
+    io_handler(const std::string& file_path) : name(file_path) {
+        // if (_file != INVALID_HANDLE_VALUE) CloseHandle(_file);
+        _file = CreateFileA(file_path.c_str(),
+                GENERIC_READ | GENERIC_WRITE,
+                FILE_SHARE_READ,
+                NULL,
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH | FILE_FLAG_NO_BUFFERING,
+                NULL
+            );
+        
+        if (_file == INVALID_HANDLE_VALUE)
+            throw std::exception("File opening failed.\n");
+    }
 
     void seekg(size_t offset) {
-        _file.seekg(offset);
+        auto ret = SetFilePointer(_file,
+            offset,
+            NULL,
+            FILE_BEGIN
+        );
+        if (ret == INVALID_SET_FILE_POINTER) {
+            auto dw = GetLastErrorAsString();
+            std::cout << dw << "\n";
+            throw std::exception("Seekg failed\n");
+        }
+            
     }
 
     void seekg_to_end() {
-        _file.seekg(0, std::ios::end);
+        if (!SetEndOfFile(_file)) {
+            auto dw = GetLastErrorAsString();
+            std::cout << dw << "\n";
+            throw std::exception("Seek to end failed\n");
+        }
+            
     }
 
     // reads size bytes at and stores the into buffer
     void read(std::vector<int32_t>& buffer, size_t size) {
-        buffer.resize(buffer.size() + size);
-        _file.read(reinterpret_cast<char*>(buffer.data() + buffer.size() - size), size * sizeof(int32_t));
+        // we will always read multiples of 512
+
+        size_t expected_size = buffer.size() + size;
+        size_t batch_num = size * sizeof(int32_t) / BLOCK_SIZE + 1;
+        size_t actual_read_size = batch_num * BLOCK_SIZE; // in bytes
+        buffer.resize(buffer.size() + actual_read_size);
+        
+        for (size_t i = 0; i < batch_num; ++i) {
+            auto ret = ReadFile(
+                _file,
+                reinterpret_cast<char*>(buffer.data() + buffer.size() - actual_read_size + i * BLOCK_SIZE / 4), // BLOCK_SIZE is in bytes
+                BLOCK_SIZE,
+                NULL,
+                NULL
+            );
+
+            if (!ret){
+                auto dw = GetLastErrorAsString();
+                std::cout << dw << "\n";
+                throw std::exception("Failed buff reading.\n");
+            }
+        }
+
+        if (buffer.size() > expected_size)
+            buffer.resize(expected_size);
     }
 
-    int32_t read_one() {
-        int32_t count = 0;
-        _file.read(reinterpret_cast<char*>(&count), sizeof(int32_t));
-        return count;
-    }
+    // void write(std::vector<int32_t>& buffer) {
+    //     _file.write(reinterpret_cast<char*>(buffer.data()), buffer.size() * sizeof(int32_t));
+    // }
 
-    void write(std::vector<int32_t>& buffer) {
-        _file.write(reinterpret_cast<char*>(buffer.data()), buffer.size() * sizeof(int32_t));
-    }
-
-    void write(std::vector<int32_t>::iterator it, size_t size) {
-        _file.write(reinterpret_cast<char*>(&(*it)), size * sizeof(int32_t));
-    }
+    // void write(std::vector<int32_t>::iterator it, size_t size) {
+    //     _file.write(reinterpret_cast<char*>(&(*it)), size * sizeof(int32_t));
+    // }
     
-    void write_one(int32_t element) {
-        _file.write(reinterpret_cast<char*>(&element), sizeof(int32_t));
+    // void write_one(int32_t element) {
+    //     _file.write(reinterpret_cast<char*>(&element), sizeof(int32_t));
+    // }
+
+    ~io_handler() {
+        CloseHandle(_file);
     }
+
 };
