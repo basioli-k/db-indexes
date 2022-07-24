@@ -57,6 +57,7 @@ public:
             NULL,
             FILE_BEGIN
         );
+
         if (ret == INVALID_SET_FILE_POINTER) {
             auto dw = GetLastErrorAsString();
             std::cout << dw << "\n";

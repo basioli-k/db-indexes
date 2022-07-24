@@ -29,24 +29,8 @@ int main(int argc, char **argv) {
     stopwatch sw;
     hor_table htable("C:/Users/kbasi/git/db-indexes/examples/db-hor");
     ver_table vtable("C:/Users/kbasi/git/db-indexes/examples/db-ver");
-    // // filter f(3, op::eq, nullptr, nullptr);
 
-    // // std::unique_ptr<filter_base> f( new filter<int>(3, op::eq, nullptr, nullptr) );
-    {
-        for (int i = 0 ; i < htable.count(); ++i) {
-            std::vector<row> hrows, vrows;
-            htable.read_rows(hrows, 1, i);
-            vtable.read_rows(vrows, 1, i);
-            if(!equal(hrows[0], vrows[0])) {
-                std::cout << "not equal at index[" << i << "]\n";
-                break;
-            }
-        }
-        // for (int i = 0 ; i < 4; ++i) {
-        //     std::cout << rows[0].get_val(i) << "\n";
-        // }
-        // std::cout << f->apply(rows[0], 0) << "\n";
-    }
+    // std::unique_ptr<filter_base> f( new filter<int>(3, op::eq, nullptr, nullptr) );
 
     return 0;
 }

@@ -5,54 +5,10 @@
 #include <vector>
 #include <fstream>
 #include <exception>
+#include "custom_types.h"
 
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
-
-enum class types {
-    int32_t,
-    uint32_t,
-    int64_t,
-    uint64_t,
-    float32,
-    float64
-};
-
-types get_type(const std::string& str_type) {
-    if (str_type == "int32_t")
-        return types::int32_t;
-    else if (str_type == "uint32_t")
-        return types::uint32_t;
-    else if (str_type == "int64_t")
-        return types::int64_t;
-    else if (str_type == "uint64_t")
-        return types::uint64_t;
-    else if (str_type == "float")
-        return types::float32;
-    else if (str_type == "double")
-        return types::float64;
-    else
-        throw std::invalid_argument("Unsupported type.");
-}
-
-std::size_t get_size(types type) {
-    switch(type){
-        case types::int32_t:
-            return sizeof(int32_t);
-        case types::uint32_t:
-            return sizeof(uint32_t);
-        case types::int64_t:
-            return sizeof(int64_t);
-        case types::uint64_t:
-            return sizeof(uint64_t);
-        case types::float32:
-            return sizeof(float);
-        case types::float64:
-            return sizeof(double);
-        default:
-            throw std::invalid_argument("Unsupported type.");
-    }
-}
 
 class schema {
     struct column {
@@ -91,13 +47,14 @@ public:
 
     std::size_t col_num() { return _cols.size(); }
 
+    // returns offset in _data array of the row
     int offset(int dim) {
         assert(dim < _cols.size());
         int offset = 0;
         for (int i = 0 ; i < dim; ++i)
             offset += get_size(_cols[i].type);
 
-        return offset;
+        return offset / 4;
     }
 
     // return row_size in bytes

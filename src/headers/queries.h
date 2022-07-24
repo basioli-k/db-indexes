@@ -13,5 +13,3 @@
 // get sum of entire column filtered by other column
 
 // get sum of entire column filtered by two columns
-
-// get max element of column same as previous
