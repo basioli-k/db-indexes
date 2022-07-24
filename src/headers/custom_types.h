@@ -79,6 +79,88 @@ public:
         }
     }
 
+    db_val operator-(const db_val& oth) {
+        assert(_val.index() == oth._val.index());
+
+        switch (static_cast<types>(_val.index())) {
+            case types::int32_t:
+                return db_val(std::get<0>(_val) - std::get<0>(oth._val));
+            case types::uint32_t:
+                return db_val(std::get<1>(_val) - std::get<1>(oth._val));
+            case types::int64_t:
+                return db_val(std::get<2>(_val) - std::get<2>(oth._val));
+            case types::uint64_t:
+                return db_val(std::get<3>(_val) - std::get<3>(oth._val));
+            case types::float32:
+                return db_val(std::get<4>(_val) - std::get<4>(oth._val));
+            case types::float64:
+                return db_val(std::get<5>(_val) - std::get<5>(oth._val));
+            default:
+                throw std::invalid_argument("Unsupported type.");
+        }
+    }
+
+    db_val operator*(const db_val& oth) {
+        assert(_val.index() == oth._val.index());
+
+        switch (static_cast<types>(_val.index())) {
+            case types::int32_t:
+                return db_val(std::get<0>(_val) * std::get<0>(oth._val));
+            case types::uint32_t:
+                return db_val(std::get<1>(_val) * std::get<1>(oth._val));
+            case types::int64_t:
+                return db_val(std::get<2>(_val) * std::get<2>(oth._val));
+            case types::uint64_t:
+                return db_val(std::get<3>(_val) * std::get<3>(oth._val));
+            case types::float32:
+                return db_val(std::get<4>(_val) * std::get<4>(oth._val));
+            case types::float64:
+                return db_val(std::get<5>(_val) * std::get<5>(oth._val));
+            default:
+                throw std::invalid_argument("Unsupported type.");
+        }
+    }
+
+    db_val operator/(const db_val& oth) {
+        assert(_val.index() == oth._val.index());
+
+        switch (static_cast<types>(_val.index())) {
+            case types::int32_t:
+                return db_val(std::get<0>(_val) / std::get<0>(oth._val));
+            case types::uint32_t:
+                return db_val(std::get<1>(_val) / std::get<1>(oth._val));
+            case types::int64_t:
+                return db_val(std::get<2>(_val) / std::get<2>(oth._val));
+            case types::uint64_t:
+                return db_val(std::get<3>(_val) / std::get<3>(oth._val));
+            case types::float32:
+                return db_val(std::get<4>(_val) / std::get<4>(oth._val));
+            case types::float64:
+                return db_val(std::get<5>(_val) / std::get<5>(oth._val));
+            default:
+                throw std::invalid_argument("Unsupported type.");
+        }
+    }
+
+    db_val operator/(const size_t oth) {
+        switch (static_cast<types>(_val.index())) {
+            case types::int32_t:
+                return db_val(int32_t(std::get<0>(_val) / oth));
+            case types::uint32_t:
+                return db_val(uint32_t(std::get<1>(_val) / oth));
+            case types::int64_t:
+                return db_val(int64_t(std::get<2>(_val) / oth));
+            case types::uint64_t:
+                return db_val(uint64_t(std::get<3>(_val) / oth));
+            case types::float32:
+                return db_val(float(std::get<4>(_val) / oth));
+            case types::float64:
+                return db_val(double(std::get<5>(_val) / oth));
+            default:
+                throw std::invalid_argument("Unsupported type.");
+        }
+    }
+
     bool operator<(const db_val& oth) const {
         assert(_val.index() == oth._val.index());
 
@@ -142,6 +224,18 @@ public:
         }
     }
 
+    std::string to_string() {
+        return std::visit([](auto&& arg) -> std::string {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::string>)
+                return arg;
+            else if constexpr (std::is_arithmetic_v<T>)
+                return std::to_string(arg);
+            else 
+                throw std::exception("Can't convert given type to string.\n");
+        }, _val);
+    }
+
     // just for debuging
     friend std::ostream& operator<<(std::ostream& os, const db_val& db_val) {
         switch (static_cast<types>(db_val._val.index())) {
@@ -189,6 +283,25 @@ db_val get_value(int32_t* ptr, types type) {
         default:
             throw std::invalid_argument("Unsupported type.");
     }
+}
+
+static db_val str_to_db_val(std::string& str_val, types type) {
+     switch(type){
+        case types::int32_t:
+            return db_val(int32_t(std::stol(str_val)));
+        case types::uint32_t:
+            return db_val(uint32_t(std::stoul(str_val)));
+        case types::int64_t:
+            return db_val(int64_t(std::stoll(str_val)));
+        case types::uint64_t:
+            return db_val(uint64_t(std::stoull(str_val)));
+        case types::float32:
+            return db_val(std::stof(str_val));
+        case types::float64:
+            return db_val(std::stod(str_val));
+        default:
+            throw std::invalid_argument("Unsupported type.");
+    }  
 }
 
 // mogu imati mapu na pointer na klasu koja ne radi nista

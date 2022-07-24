@@ -22,6 +22,8 @@ public:
     int32_t count() {
         return _count;
     }
+
+    schema& schema() { return _schema; }
 protected:
     void update_count() {
         _count_handler.seekg(0);

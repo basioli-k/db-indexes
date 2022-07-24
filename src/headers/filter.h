@@ -12,43 +12,78 @@ enum class op {
     lor
 };
 
+static std::string op_to_str(op operation) {
+    switch (operation) {
+        case op::gt:
+            return ">";
+        case op::lt:
+            return "<";
+        case op::eq:
+            return "==";
+        case op::land:
+            return "AND";
+        case op::lor:
+            return "OR";
+        default:
+            throw std::exception("Operation type doesn't exit.\n");
+    }
+}
+
+class filter;
+using filter_ptr = std::unique_ptr<filter>;
 class filter {
-    using filter_ptr = std::unique_ptr<filter>;
     op _op;
-    filter_ptr _left, _right;
+    std::vector<filter_ptr> _children;
     db_val _val;
     int _dim;
 public:
-    filter(op o, filter_ptr l, filter_ptr r, db_val val = {}, int dim = -1) : _op(o), _left(std::move(l)), 
-        _right(std::move(r)), _val(val), _dim(dim)
+    filter(op o, std::vector<filter_ptr> children, db_val val = {}, int dim = -1) : _op(o), _children(std::move(children)), 
+    _val(val), _dim(dim)
     {
-        if (!_left && !_right && ((o == op::land || o == op::lor) || dim == -1)) 
+        if (!_children.size() && ((o == op::land || o == op::lor) || dim == -1)) 
             throw std::exception("Leaf nodes can't have and/or operator and have to define a dimension.");
-        if ( (_left || _right) && (o == op::gt || o == op::lt || o == op::eq)) throw std::exception("Comparators can't have any children.");
+        if ( _children.size() && (o == op::gt || o == op::lt || o == op::eq)) throw std::exception("Comparators can't have any children.");
     }
 
     bool apply(const db_val& val, int dim) {
-        if (!_left && !_right) {    // assume everything is satisfied if you get one value
+        if (!_children.size()) {    // assume everything is satisfied if you get one value
             return dim == _dim ? cmp(val) : true;   
         }
             
-        else if (!_left)
-            return _right->apply(val, dim);
-        else if (!_right)
-            return _left->apply(val, dim);
+        std::vector<bool> applied;
+        applied.reserve(_children.size());
         
-        return logical_op(_left->apply(val, dim), _right->apply(val, dim));
+        for(size_t i = 0 ; i < _children.size(); ++i)
+            applied.push_back(_children[i]->apply(val, dim));
+        
+        return logical_op(applied);
     }
 
     bool apply(row& row) {
-        if (!_left && !_right)
+        if (!_children.size())
             return cmp(row.get_val(_dim));
-        else if (!_left)
-            return _right->apply(row);
-        else if (!_right)
-            return _left->apply(row);
+
+        std::vector<bool> applied;
+        applied.reserve(_children.size());
         
-        return logical_op(_left->apply(row), _right->apply(row));
+        for(size_t i = 0 ; i < _children.size(); ++i)
+            applied.push_back(_children[i]->apply(row));
+        
+        return logical_op(applied);
+    }
+
+    std::string get_filter_text(schema& schema) {
+        if (!_children.size())
+            return schema.get_column(_dim).name + " " + op_to_str(_op) + " " + _val.to_string();
+        
+        std::string text = "(";
+        for (size_t i = 0 ; i < _children.size(); ++i) {
+            text += _children[i]->get_filter_text(schema);
+            if (i == _children.size() - 1) text += ")";
+            else text += " " + op_to_str(_op) + " ";
+        }
+
+        return text;
     }
 private:
     bool cmp(const db_val& val) {
@@ -58,9 +93,17 @@ private:
         else throw std::exception("Invalid use of cmp.\n");
     }
 
-    bool logical_op(bool b1, bool b2) {
-        if (_op == op::land) return b1 && b2;
-        else if (_op == op::lor) return b1 || b2;
+    bool logical_op(const std::vector<bool>& bool_vals) {
+        if (_op == op::land) {
+            bool result = true;
+            for(auto val : bool_vals) result = result && val;
+            return result;
+        } 
+        else if (_op == op::lor) {
+            bool result = false;
+            for(auto val : bool_vals) result = result || val;
+            return result;
+        }
         else throw std::exception("Invalid use of logical op.\n");
     }
 };
