@@ -53,6 +53,8 @@ std::size_t get_size(types type) {
 class db_val {
     type_variant _val;
 public:
+    db_val() {}
+
     template <typename T>
     db_val(T val) : _val(val) {}
 
@@ -77,7 +79,7 @@ public:
         }
     }
 
-    bool operator<(const db_val& oth) {
+    bool operator<(const db_val& oth) const {
         assert(_val.index() == oth._val.index());
 
         switch (static_cast<types>(_val.index())) {
@@ -98,7 +100,7 @@ public:
         }
     }
 
-    bool operator>(const db_val& oth) {
+    bool operator>(const db_val& oth) const {
         assert(_val.index() == oth._val.index());
 
         switch (static_cast<types>(_val.index())) {
@@ -119,7 +121,7 @@ public:
         }
     }
 
-    bool operator==(const db_val& oth) {
+    bool operator==(const db_val& oth) const {
         assert(_val.index() == oth._val.index());
 
         switch (static_cast<types>(_val.index())) {
