@@ -18,6 +18,22 @@ public:
             _col_handlers.emplace_back(table_path + maybe_backslash(table_path) + _schema.get_name() + "/" + _schema.get_column(dim).name + VER_TABLE_SUFF);
     }
 
+    std::vector<row> execute_query(query& query) {
+        std::vector<row> rows;
+        // mozda u filteru promijeniti drugi overload funkcije apply
+        // kako bi to radilo?
+        // za svaki blok:
+            // ucitali bi relevantne stupce (saznali bi koje iz querya)
+            // te stupce bi poslali zajedno sa njihovim dimenzijama u query (filter)
+            // pamtili bi offsete u bloku za one koji nam odgovaraju
+            // procitali preostale (ako naredba nije agregacijska)
+
+        // prvo cemo ucitati relevantne stupce i od njih sloziti "redak"
+        // iz toga cemo znati koji retci nam trebaju
+
+        return rows;
+    }
+
     // returns list of entries
     void read_cols(std::vector<int32_t>& buff, int dim, int32_t cols_num, size_t col_offset = 0) {
         int32_t avail = count() - col_offset;

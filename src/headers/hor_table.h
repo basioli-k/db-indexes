@@ -7,12 +7,47 @@
 #include "io_handler.h"
 #include "common.h"
 #include "table.h"
+#include "query.h"
 
 class hor_table : public table {
     io_handler _table_handler;
 public: 
     hor_table(const std::string& table_path) : table(table_path),
         _table_handler(table_path + maybe_backslash(table_path) +  _schema.get_name() + HOR_TABLE_SUFF) {}
+
+    // TODO make this function have different return values
+    std::vector<row> execute_query(query& q) {
+        std::vector<row> rows;
+        
+        _table_handler.seekg(0);
+        int32_t total_rows = count();
+        rows.reserve(total_rows); // this is a big allocation that might be too wasteful
+        auto row_size = _schema.row_size();
+        int32_t rows_in_block = BLOCK_SIZE / row_size;
+
+        std::vector<int32_t> rows_data;
+
+        for( ; total_rows ; ) {
+            _table_handler.read(rows_data, rows_in_block * row_size / 4);
+            for(size_t i = 0; i < rows_data.size() && total_rows; ) {
+                std::vector<int32_t> row_data;
+                size_t to_copy = row_size / 4;
+                while (to_copy--) row_data.push_back(rows_data[i++]);
+                row r(row_data, _schema);
+                if (q.is_satisfied(r))
+                    rows.emplace_back(std::move(r));
+                total_rows--;
+
+                if (rows.size() >= q.limit() && q.limit())
+                    return rows;
+            }
+            rows_data.clear();
+        }
+
+        rows.shrink_to_fit();
+        return rows;
+    }
+
 
     // read rows_num rows, starting at offset row_offset (offset meaning the cardinal number of the row in table)
     void read_rows(std::vector<row>& rows, int32_t rows_num, size_t row_offset = 0) {

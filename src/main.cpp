@@ -33,31 +33,25 @@ int main(int argc, char **argv) {
 
     query_builder qb("C:/Users/kbasi/git/db-indexes/examples/dists/dist1.txt", htable.schema());
 
-    auto queries = qb.generate_queries({ 0, 1 }, op::land);
-
-    // // po prvom retku veci od 300 i manji od 500
-    // // po drugom retku manji od 0.3
-    // std::unique_ptr<filter> first_col_gt(new filter(op::gt, nullptr, nullptr, db_val(uint64_t(300)), 0 ));
-    // std::unique_ptr<filter> first_col_lt(new filter(op::lt, nullptr, nullptr, db_val(uint64_t(500)), 0 ));
-    // std::unique_ptr<filter> first_col( new filter(op::land, std::move(first_col_gt), std::move(first_col_lt)));
-
-    // std::unique_ptr<filter> second_col( new filter(op::gt, nullptr, nullptr, db_val(double(0.3)), 1));
-
-    // std::unique_ptr<filter> fil ( new filter(op::lor, std::move(first_col), std::move(second_col)) );
+    auto queries = qb.generate_queries({ 0, 1 }, op::lor);
+    for (size_t i = 0 ; i < queries.size() ; ++i)
+    {
+        try{
+            std::cout << queries[i].query_text(htable.schema()) << "\n";
+            sw.start();
+            auto results = htable.execute_query(queries[i]);
+            std::cout << sw.stop() << "\n";
+            std::cout << "No of rows: " << results.size() << "\n";
+        }
+        catch (std::exception e) {
+            std::cout << e.what() << "\n";
+            exit(-1);
+        }
+        
+    }
     
-    // std::vector<row> rows;
-    // int valid = 0;
-    // for(int i = 0 ; i < 10 ; ++i) {
-    //     htable.read_rows(rows, 1, i);
-    //     if (fil->apply(rows[0])) {
-    //         valid++;
-    //     }   
-    //     rows[0].print_values();
-    //     std::cout << "-----------------\n";
-    //     rows.clear();
-    // }
 
-    // std::cout << valid << "\n";
+    // na svakoj tablici napraviti funkciju execute koja prima query, bavi se filterima itd itd
 
     return 0;
 }

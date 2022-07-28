@@ -1,14 +1,34 @@
 #pragma once
+#include <set>
 #include "schema.h"
 #include "filter.h"
 
 constexpr size_t INTERVALS_NUM = 3;
 
 class query {
+    std::set<int> _query_dims;
     filter_ptr _filter;
+    uint32_t _limit;
     
 public:
-    query(filter_ptr f) : _filter(std::move(_filter)) {}
+    query(filter_ptr f, uint32_t row_limit = 0) : _filter(std::move(f)), _limit(row_limit) {
+        _filter->get_filter_dims(_query_dims);
+    }
+
+    uint32_t limit() { return _limit; }
+    bool is_satisfied(row& row) {
+        if (!_filter) return true;
+        return _filter->apply(row);
+    }
+
+    bool is_satisfied(std::unordered_map<int, const db_val>& dim_vals) {
+        if (!_filter) return true;
+        return _filter->apply(dim_vals);
+    }
+
+    std::string query_text(schema& schema) {
+        return _filter->get_filter_text(schema);
+    }
 };
 
 using interval = std::pair<db_val, db_val>;
@@ -92,8 +112,8 @@ public:
         get_all_combinations(all_combs, col_intervals, {}, 0);
 
         for(auto& filt_ints : all_combs) {
-            auto query_filter = make_query_filter(col_dims, filt_ints, logical_op);
-            queries.emplace_back(std::move(query_filter));
+            // auto query_filter = make_query_filter(col_dims, filt_ints, logical_op);
+            queries.push_back(make_query_filter(col_dims, filt_ints, logical_op));
         }
 
         return queries;
