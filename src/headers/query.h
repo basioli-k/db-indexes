@@ -11,11 +11,12 @@ class query {
     uint32_t _limit;
     
 public:
-    query(filter_ptr f, uint32_t row_limit = 0) : _filter(std::move(f)), _limit(row_limit) {
+    query(filter_ptr f, uint32_t row_limit = 10) : _filter(std::move(f)), _limit(row_limit) {
         _filter->get_filter_dims(_query_dims);
     }
 
     uint32_t limit() { return _limit; }
+
     bool is_satisfied(row& row) {
         if (!_filter) return true;
         return _filter->apply(row);
@@ -29,6 +30,8 @@ public:
     std::string query_text(schema& schema) {
         return _filter->get_filter_text(schema);
     }
+
+    std::set<int> get_q_dims() { return _query_dims; }
 };
 
 using interval = std::pair<db_val, db_val>;

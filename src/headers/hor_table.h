@@ -38,8 +38,11 @@ public:
                     rows.emplace_back(std::move(r));
                 total_rows--;
 
-                if (rows.size() >= q.limit() && q.limit())
+                if (rows.size() >= q.limit() && q.limit()) {
+                    rows.shrink_to_fit();
                     return rows;
+                }
+                    
             }
             rows_data.clear();
         }

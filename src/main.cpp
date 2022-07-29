@@ -39,7 +39,16 @@ int main(int argc, char **argv) {
         try{
             std::cout << queries[i].query_text(htable.schema()) << "\n";
             sw.start();
-            auto results = htable.execute_query(queries[i]);
+            auto results = vtable.execute_query(queries[i]);
+            auto res2 = htable.execute_query(queries[i]);
+            
+            bool results_eq = results.size() == res2.size();
+            // imam krive rezultate, ali bar se vtable ne raspadne, idemo dalje
+            for (int i = 0 ; i < results.size(); ++i){
+                results_eq = results_eq && equal(results[i], res2[i]);
+            }
+
+            std::cout << "Results eq variable is: " << results_eq << "\n";
             std::cout << sw.stop() << "\n";
             std::cout << "No of rows: " << results.size() << "\n";
         }
