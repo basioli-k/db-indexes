@@ -14,6 +14,7 @@ class ver_table : public table {
     std::vector<int32_t> _entries_in_block;
 
 public:
+    int reads_num = 0;
     ver_table(const std::string& table_path) : table(table_path)
     {
         auto col_num = _schema.col_num();
@@ -24,7 +25,7 @@ public:
         // precompute these values
         for (size_t dim = 0 ; dim < _col_handlers.size() ; ++dim) {
             _col_sizes.push_back(get_size(_schema.get_column(dim).type) / 4);
-            _entries_in_block.push_back(BLOCK_SIZE / _col_sizes[dim]);
+            _entries_in_block.push_back(BLOCK_SIZE / (_col_sizes[dim] * 4));
         }
     }
 
@@ -32,7 +33,7 @@ public:
         std::vector<row> rows;
 
         int32_t total_rows = count();
-        rows.reserve(total_rows);
+        rows.reserve(q.limit() ? q.limit() : total_rows);
         auto q_dims = q.get_q_dims();
 
         std::vector<int32_t> col_index = _entries_in_block;// track index of processed entries in col
@@ -44,42 +45,54 @@ public:
         for (size_t dim = 0 ; dim < cols.size() ; ++dim)
             cols[dim].reserve(_entries_in_block[dim] * _col_sizes[dim]);
         
-        // get smallest no of _entries_in_block from queried dims, that is the no of rows we process
-        // in a block
-        int32_t min_entries_in_block = std::numeric_limits<int32_t>::max(); // get biggest size_t by initializing as zero and overflowing by subtraction
-        for (auto dim : q_dims)
-            min_entries_in_block = std::min(_entries_in_block[dim], min_entries_in_block);
-
+        // set query file handlers to start of file
+        for(auto dim : q_dims)
+            _col_handlers[dim].seekg(0);
+        
         for(size_t row_index = 0; row_index < total_rows ;) {
-            // get columns referenced in query
-            for (auto dim : q_dims) {
-                if (col_index[dim] < _entries_in_block[dim])
-                    continue;
-                col_index[dim] = 0;
-                cols[dim].clear();
-                _col_handlers[dim].read(cols[dim], _entries_in_block[dim] * _col_sizes[dim]);
-            }
-
             std::vector<size_t> rows_to_use;
-            // evaluate query
-            for (size_t i = 0 ; i < min_entries_in_block; ++i) {
-                std::unordered_map<int, const db_val> values;
-                for (auto dim : q_dims)
-                    values.emplace(dim, get_value(cols[dim].data() + (col_index[dim] + i * _col_sizes[dim]), _schema.get_column(dim).type));
 
-                if (q.is_satisfied(values)) {
-                    // ovdje ce se odradivati agregacijske funkcije ili 
-                    // pamcenje row indeksa koji zadovoljavaju kveri u slucaju da zelimo sve retke
-                    rows_to_use.push_back(row_index);
+            if (q_dims.size()) {
+                // get columns referenced in query
+                for (auto dim : q_dims) {
+                    if (col_index[dim] < _entries_in_block[dim])
+                        continue;
+                    col_index[dim] = 0;
+                    cols[dim].clear();
+                    reads_num++;
+                    _col_handlers[dim].read(cols[dim], _entries_in_block[dim] * _col_sizes[dim]);
+                }
+                // get smallest no of _entries_in_block from queried dims, that is the no of rows we process
+                // in a block   
+                int32_t min_entries_in_block = std::numeric_limits<int32_t>::max();
+                for (auto dim : q_dims)
+                    min_entries_in_block = std::min(_entries_in_block[dim], min_entries_in_block);
+
+                // evaluate query
+                for (size_t i = 0 ; i < min_entries_in_block && row_index < total_rows; ++i) {
+                    std::vector<db_val> values(_col_handlers.size());
+
+                    for (auto dim : q_dims)
+                        values[dim] = get_value(cols[dim].data() + (col_index[dim] + i * _col_sizes[dim]), _schema.get_column(dim).type);
+
+                    if (q.is_satisfied(values)) {
+                        //TODO ovdje ce se odradivati agregacijske funkcije
+                        rows_to_use.push_back(row_index);
+                    }
                     ++row_index;
                 }
-                ++row_index;
+
+                // update the state of the queried col indexes in cols vector
+                for (auto dim : q_dims)
+                    col_index[dim] += min_entries_in_block;
+            }
+            else {
+                rows_to_use.push_back(0);
+                rows_to_use.push_back(q.limit() ? q.limit() : total_rows);
             }
 
-            if (!rows_to_use.size()) return rows;
-            // update the state of the queried col indexes in cols vector
-            for (auto dim : q_dims)
-                col_index[dim] += min_entries_in_block;
+            if (!rows_to_use.size()) 
+                continue;
 
             // decide which blocks to read
             // read remaining cols
@@ -90,26 +103,36 @@ public:
                 int blocks_to_read = (rows_to_use[rows_to_use.size() - 1] / _entries_in_block[dim]) -
                     (rows_to_use[0] / _entries_in_block[dim]) + 1;
 
-                _col_handlers[dim].read(cols[dim], blocks_to_read * _entries_in_block[dim] * _col_sizes[dim]);
+                cols[dim].clear();
+                while (blocks_to_read--) {    // force multiple block reads
+                    reads_num++;
+                    _col_handlers[dim].read(cols[dim], _entries_in_block[dim] * _col_sizes[dim]);
+                }
             }
             
-
-            // prepare row data
-            for (auto row_off : rows_to_use) {
-                std::vector<int32_t> row_data;
-                // indeks vrijednosti retka krecu na:
-                for (size_t dim = 0 ; dim < cols.size(); ++dim) {
-                    auto to_copy = _col_sizes[dim];
-                    auto col_dim_offset = (row_off * _col_sizes[dim]) % cols[dim].size();   // treba viditi je li ovo dobro izracunato
-                    while(to_copy--) row_data.emplace_back(cols[dim][col_dim_offset++]);
+            if (q_dims.empty()) {
+                for (size_t row_off = rows_to_use[0] ; row_off < rows_to_use[1]; ++row_off) {
+                    prepare_row_data(rows, cols, row_off);
+                    
+                    if (rows.size() >= q.limit() && q.limit()) {
+                        rows.shrink_to_fit();
+                        return rows;
+                    }
                 }
-                rows.emplace_back(row_data, _schema);
-
-                if (rows.size() >= q.limit() && q.limit()) {
-                    rows.shrink_to_fit();
-                    return rows;
+            } 
+            else {
+                // prepare row data
+                for (auto row_off : rows_to_use) {
+                    prepare_row_data(rows, cols, row_off);
+                    
+                    if (rows.size() >= q.limit() && q.limit()) {
+                        rows.shrink_to_fit();
+                        return rows;
+                    }
                 }
             }
+
+            
         }
         rows.shrink_to_fit();
         return rows;
@@ -131,7 +154,7 @@ public:
         std::vector<int32_t> first_read_buff;
         for (;cols_num > 0;) {
             if (first_read) {
-                _col_handlers[dim].read(first_read_buff, entries_in_block * col_size / 4);
+                _col_handlers[dim].read(first_read_buff, std::min(entries_in_block, cols_num )* col_size / 4);
                 for (size_t i = (col_offset % entries_in_block) * col_size / 4; i < first_read_buff.size() && cols_num > 0;) {
                     auto to_copy = col_size / 4;
                     while(to_copy--) buff.push_back(first_read_buff[i++]);
@@ -139,9 +162,11 @@ public:
                 }
                 first_read = false;
             }
-            else 
-                _col_handlers[dim].read(buff, entries_in_block * col_size / 4);
-            cols_num -= entries_in_block;
+            else {
+                _col_handlers[dim].read(buff, std::min(entries_in_block, cols_num ) * col_size / 4);
+                cols_num -= entries_in_block;
+            }
+                
         }
     }
 
@@ -189,5 +214,16 @@ public:
         //     beg = beg + size;
         // }
         // increment_count();  // TODO only if successful
+    }
+
+private:
+    void prepare_row_data(std::vector<row>& rows, std::vector<std::vector<int32_t>>& cols, size_t row_off) {
+        std::vector<int32_t> row_data;
+        for (size_t dim = 0 ; dim < cols.size(); ++dim) {
+            auto to_copy = _col_sizes[dim];
+            auto col_dim_offset = (row_off * _col_sizes[dim]) % cols[dim].size();
+            while(to_copy--) row_data.emplace_back(cols[dim][col_dim_offset++]);
+        }
+        rows.emplace_back(row_data, _schema);
     }
 };

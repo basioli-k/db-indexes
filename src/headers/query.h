@@ -1,18 +1,34 @@
 #pragma once
 #include <set>
+#include "row.h"
 #include "schema.h"
 #include "filter.h"
 
 constexpr size_t INTERVALS_NUM = 3;
 
+enum class query_type {
+    star, // as in select *
+    sum
+};
+
+class query_res {
+    std::vector<row> _rows;
+    db_val _val;
+public:
+
+};
+
 class query {
     std::set<int> _query_dims;
     filter_ptr _filter;
     uint32_t _limit;
-    
+    query_type _qtype;
 public:
-    query(filter_ptr f, uint32_t row_limit = 10) : _filter(std::move(f)), _limit(row_limit) {
-        _filter->get_filter_dims(_query_dims);
+    query(filter_ptr f, query_type qtype, uint32_t row_limit) : _filter(std::move(f)), _limit(row_limit),
+        _qtype(qtype) 
+    {
+        if (_filter) 
+            _filter->get_filter_dims(_query_dims);
     }
 
     uint32_t limit() { return _limit; }
@@ -22,12 +38,13 @@ public:
         return _filter->apply(row);
     }
 
-    bool is_satisfied(std::unordered_map<int, const db_val>& dim_vals) {
+    bool is_satisfied(std::vector<db_val>& dim_vals) {
         if (!_filter) return true;
         return _filter->apply(dim_vals);
     }
 
     std::string query_text(schema& schema) {
+        if (!_filter) return "";
         return _filter->get_filter_text(schema);
     }
 
@@ -97,7 +114,8 @@ public:
     // the filters will have the format:
     // (col_1 > lower_bound_1 and col_1 < upper_bound_1) and/or (col_2 > lower_bound_2 and col_2 < upper_bound_2) and/or ...
     // second parameter specifies wheter to use and or or
-    std::vector<query> generate_queries(const std::vector<int>& col_dims, op logical_op) {
+    // if limit parameter is eq to 0 then query for all elements in table
+    std::vector<query> generate_queries(const std::vector<int>& col_dims, op logical_op, query_type qtype, uint32_t limit = 0) {
         if (logical_op != op::land && logical_op != op::lor) 
             throw std::exception("Only use logical operators in generate queries\n");
 
@@ -114,10 +132,8 @@ public:
 
         get_all_combinations(all_combs, col_intervals, {}, 0);
 
-        for(auto& filt_ints : all_combs) {
-            // auto query_filter = make_query_filter(col_dims, filt_ints, logical_op);
-            queries.push_back(make_query_filter(col_dims, filt_ints, logical_op));
-        }
+        for(auto& filt_ints : all_combs)
+            queries.emplace_back(make_query_filter(col_dims, filt_ints, logical_op), qtype, limit);
 
         return queries;
     }

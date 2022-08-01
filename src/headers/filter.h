@@ -48,7 +48,7 @@ public:
             throw std::exception("Comparators can't have any children.");
     }
 
-    bool apply(std::unordered_map<int, const db_val>& dim_vals) {
+    bool apply(std::vector<db_val>& dim_vals) {
         if (!_children.size()) {    // assume everything is satisfied if you get one value
             return cmp(dim_vals[_dim]);   
         }
@@ -63,8 +63,10 @@ public:
     }
 
     bool apply(row& row) {
-        if (!_children.size())
-            return cmp(row.get_val(_dim));
+        if (!_children.size()) {
+            auto val = row.get_val(_dim);
+            return cmp(val);
+        }
 
         std::vector<bool> applied;
         applied.reserve(_children.size());
@@ -98,7 +100,7 @@ public:
     }
 
 private:
-    bool cmp(const db_val& val) {
+    bool cmp(db_val& val) {
         if (_op == op::eq) return val == _val;
         else if (_op == op::lt) return val < _val;
         else if (_op == op::gt) return val > _val;

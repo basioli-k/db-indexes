@@ -80,7 +80,7 @@ public:
         // we will always read multiples of 512
 
         size_t expected_size = buffer.size() + size;
-        size_t batch_num = size * sizeof(int32_t) / BLOCK_SIZE + 1;
+        size_t batch_num = size * sizeof(int32_t) / BLOCK_SIZE + 1 * ((size * sizeof(int32_t)) % BLOCK_SIZE != 0);
         size_t actual_read_size = batch_num * BLOCK_SIZE; // in bytes
         buffer.resize(buffer.size() + actual_read_size);
         
