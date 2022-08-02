@@ -17,13 +17,12 @@ public:
     hor_table(const std::string& table_path) : table(table_path),
         _table_handler(table_path + maybe_backslash(table_path) +  _schema.get_name() + HOR_TABLE_SUFF) {}
 
-    // TODO make this function have different return values
-    std::vector<row> execute_query(query& q) {
-        std::vector<row> rows;
+    query_res execute_query(query& q) {
+        query_res qres(q.qtype());
 
         _table_handler.seekg(0);
         int32_t total_rows = count();
-        rows.reserve(q.limit() ? q.limit() : total_rows);
+        qres.reserve(q.limit() ? q.limit() : total_rows);
         auto row_size = _schema.row_size();
         int32_t rows_in_block = BLOCK_SIZE / row_size;
 
@@ -39,21 +38,28 @@ public:
                 row r(row_data, _schema);
 
                 if (q.is_satisfied(r)){
-                    rows.emplace_back(std::move(r));
+                    // TODO priprema rezultata ovdje
+                    if (q.qtype() == query_type::star)
+                        qres.add(r);
+                    else {
+                        auto val = r.get_val(q.agg_dim());
+                        qres.add(val);
+                    }
+                        
                 }
                 total_rows--;
 
-                if (rows.size() >= q.limit() && q.limit()) {
-                    rows.shrink_to_fit();
-                    return rows;
+                if (qres.size() >= q.limit() && q.limit()) {
+                    qres.shrink_to_fit();
+                    return qres;
                 }
                     
             }
             rows_data.clear();
         }
 
-        rows.shrink_to_fit();
-        return rows;
+        qres.shrink_to_fit();
+        return qres;
     }
 
 

@@ -40,8 +40,8 @@ int main(int argc, char **argv) {
     // auto queries = qb.generate_queries({ 0, 3 }, op::lor, query_type::star);
 
     std::vector<query> queries;
-    for (int i = htable.count() ; i <= htable.count(); i += 100000)
-        queries.emplace_back(nullptr, query_type::star, i);
+    for (int i = 100000 ; i <= htable.count(); i += 100000)
+        queries.emplace_back(nullptr, query_type::sum, i, 0);
 
     // new way of reading (using queries)
     for (size_t i = 0 ; i < queries.size() ; ++i)
@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
         try{
             std::cout << queries[i].query_text(htable.schema()) << "\n";
             sw.start();
+            
             auto results = htable.execute_query(queries[i]);
             std::cout << "query hor: " << sw.stop() << "\n";
             std::cout << "reads: " << htable.reads_num << "\n";
@@ -58,18 +59,17 @@ int main(int argc, char **argv) {
             std::cout << "query ver: " << sw.stop() << "\n";
             std::cout << "reads: " << vtable.reads_num << "\n";
             vtable.reads_num = 0;
+
             bool results_eq = results.size() == res2.size();
             for (int i = 0 ; i < results.size(); ++i) {
-                results_eq = results_eq && equal(results[i], res2[i]);
-                if (!results_eq) {
-                    results[i].print_values();
-                    std::cout << "..........\n";
-                    res2[i].print_values();
-                    std::cout << "..........\n";
-                    std::cout << i << "\n";
-                }
-
+                results_eq = results_eq && equal(results.rows()[i], res2.rows()[i]);
             }
+
+            if (results.val() == res2.val())
+                std::cout << results.val() << " good sum.\n";
+            else
+                std::cout << "wrong sum\n";
+
             std::cout << "rows num: " << results.size() << "\n";
             std::cout << "Results eq variable is: " << results_eq << "\n";
         }

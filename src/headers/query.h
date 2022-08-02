@@ -14,8 +14,40 @@ enum class query_type {
 class query_res {
     std::vector<row> _rows;
     db_val _val;
+    bool is_val_set = false;
+    query_type _qtype;
 public:
+    query_res(query_type qtype) : _qtype(qtype) { }
 
+    void add(row& val) {
+        _rows.emplace_back(std::move(val));
+    }
+
+    void add(db_val& val) {
+        if (!is_val_set) {
+            _val = val;
+            is_val_set = true;
+        }
+        else _val = _val + val;
+    }
+
+    void reserve(uint32_t to_reserve) {
+        if (_qtype != query_type::star) return;
+        _rows.reserve(to_reserve);
+    }
+
+    void shrink_to_fit() {
+        if (_qtype != query_type::star) return;
+        _rows.shrink_to_fit();
+    }
+
+    size_t size() { return _rows.size(); }
+
+    std::vector<row>& rows() { return _rows; }
+    db_val& val() { 
+        if (!is_val_set) _val = db_val(0);
+        return _val; 
+    }
 };
 
 class query {
@@ -23,15 +55,31 @@ class query {
     filter_ptr _filter;
     uint32_t _limit;
     query_type _qtype;
+    int _agg_dim;
 public:
+    query(filter_ptr f, query_type qtype, uint32_t row_limit, int agg_dim) : _filter(std::move(f)), _limit(row_limit),
+        _qtype(qtype), _agg_dim(agg_dim)
+    {
+        if (qtype != query_type::sum) 
+            throw std::exception("Can't initiate query with aggregation dimension if qtype isn't agg.");
+        if (_filter)
+            _filter->get_filter_dims(_query_dims);
+        _query_dims.insert(agg_dim);
+    }
     query(filter_ptr f, query_type qtype, uint32_t row_limit) : _filter(std::move(f)), _limit(row_limit),
         _qtype(qtype) 
     {
+        if (qtype == query_type::sum) 
+            throw std::exception("Can't have agg query without agg dim.");
         if (_filter) 
             _filter->get_filter_dims(_query_dims);
     }
 
+    int agg_dim() { return _agg_dim; }
+
     uint32_t limit() { return _limit; }
+
+    query_type qtype() { return _qtype; }
 
     bool is_satisfied(row& row) {
         if (!_filter) return true;
@@ -115,7 +163,7 @@ public:
     // (col_1 > lower_bound_1 and col_1 < upper_bound_1) and/or (col_2 > lower_bound_2 and col_2 < upper_bound_2) and/or ...
     // second parameter specifies wheter to use and or or
     // if limit parameter is eq to 0 then query for all elements in table
-    std::vector<query> generate_queries(const std::vector<int>& col_dims, op logical_op, query_type qtype, uint32_t limit = 0) {
+    std::vector<query> generate_queries(const std::vector<int>& col_dims, op logical_op, query_type qtype, uint32_t limit = 0, int agg_dim = -1) {
         if (logical_op != op::land && logical_op != op::lor) 
             throw std::exception("Only use logical operators in generate queries\n");
 
@@ -132,8 +180,13 @@ public:
 
         get_all_combinations(all_combs, col_intervals, {}, 0);
 
-        for(auto& filt_ints : all_combs)
-            queries.emplace_back(make_query_filter(col_dims, filt_ints, logical_op), qtype, limit);
+        for(auto& filt_ints : all_combs) {
+            if (agg_dim == -1)
+                queries.emplace_back(make_query_filter(col_dims, filt_ints, logical_op), qtype, limit);
+            else
+                queries.emplace_back(make_query_filter(col_dims, filt_ints, logical_op), qtype, limit, agg_dim);
+        }
+            
 
         return queries;
     }

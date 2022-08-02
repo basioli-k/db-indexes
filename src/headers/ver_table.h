@@ -29,11 +29,11 @@ public:
         }
     }
 
-    std::vector<row> execute_query(query& q) {
-        std::vector<row> rows;
+    query_res execute_query(query& q) {
+        query_res qres(q.qtype());
 
         int32_t total_rows = count();
-        rows.reserve(q.limit() ? q.limit() : total_rows);
+        qres.reserve(q.limit() ? q.limit() : total_rows);
         auto q_dims = q.get_q_dims();
 
         std::vector<int32_t> col_index = _entries_in_block;// track index of processed entries in col
@@ -77,7 +77,10 @@ public:
 
                     if (q.is_satisfied(values)) {
                         //TODO ovdje ce se odradivati agregacijske funkcije
-                        rows_to_use.push_back(row_index);
+                        if (q.qtype() == query_type::star)
+                            rows_to_use.push_back(row_index);
+                        else if (q.qtype() == query_type::sum)
+                            qres.add(values[q.agg_dim()]);
                     }
                     ++row_index;
                 }
@@ -91,7 +94,7 @@ public:
                 rows_to_use.push_back(q.limit() ? q.limit() : total_rows);
             }
 
-            if (!rows_to_use.size()) 
+            if (!rows_to_use.size()) // this basically means we are aggregating
                 continue;
 
             // decide which blocks to read
@@ -112,30 +115,30 @@ public:
             
             if (q_dims.empty()) {
                 for (size_t row_off = rows_to_use[0] ; row_off < rows_to_use[1]; ++row_off) {
-                    prepare_row_data(rows, cols, row_off);
+                    prepare_row_data(qres, cols, row_off);
                     
-                    if (rows.size() >= q.limit() && q.limit()) {
-                        rows.shrink_to_fit();
-                        return rows;
+                    if (qres.size() >= q.limit() && q.limit()) {
+                        qres.shrink_to_fit();
+                        return qres;
                     }
                 }
             } 
             else {
                 // prepare row data
                 for (auto row_off : rows_to_use) {
-                    prepare_row_data(rows, cols, row_off);
+                    prepare_row_data(qres, cols, row_off);
                     
-                    if (rows.size() >= q.limit() && q.limit()) {
-                        rows.shrink_to_fit();
-                        return rows;
+                    if (qres.size() >= q.limit() && q.limit()) {
+                        qres.shrink_to_fit();
+                        return qres;
                     }
                 }
             }
 
             
         }
-        rows.shrink_to_fit();
-        return rows;
+        qres.shrink_to_fit();
+        return qres;
     }
 
     // returns list of entries
@@ -217,13 +220,14 @@ public:
     }
 
 private:
-    void prepare_row_data(std::vector<row>& rows, std::vector<std::vector<int32_t>>& cols, size_t row_off) {
+    void prepare_row_data(query_res& qres, std::vector<std::vector<int32_t>>& cols, size_t row_off) {
         std::vector<int32_t> row_data;
         for (size_t dim = 0 ; dim < cols.size(); ++dim) {
             auto to_copy = _col_sizes[dim];
             auto col_dim_offset = (row_off * _col_sizes[dim]) % cols[dim].size();
             while(to_copy--) row_data.emplace_back(cols[dim][col_dim_offset++]);
         }
-        rows.emplace_back(row_data, _schema);
+        row r(row_data, _schema);
+        qres.add(r);
     }
 };
