@@ -37,11 +37,21 @@ int main(int argc, char **argv) {
 
     query_builder qb("C:/Users/kbasi/git/db-indexes/examples/dists/dist1.txt", htable.schema());
 
+     //// with filters
     // auto queries = qb.generate_queries({ 0, 3 }, op::lor, query_type::star);
 
-    std::vector<query> queries;
-    for (int i = 100000 ; i <= htable.count(); i += 100000)
-        queries.emplace_back(nullptr, query_type::sum, i, 0);
+    // with filters with sum
+    auto queries = qb.generate_queries({ 0, 3 }, op::lor, query_type::sum, htable.count(), 0);
+
+    // // without filters
+    // std::vector<query> queries;
+    // for (int i = 100000 ; i <= htable.count(); i += 100000)
+    //     queries.emplace_back(nullptr, query_type::star, i);
+
+    // // without filters with sum
+    // std::vector<query> queries;
+    // for (int i = 100000 ; i <= htable.count(); i += 100000)
+    //     queries.emplace_back(nullptr, query_type::sum, i, 0);
 
     // new way of reading (using queries)
     for (size_t i = 0 ; i < queries.size() ; ++i)
