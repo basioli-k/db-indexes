@@ -8,6 +8,7 @@
 #include "headers/stopwatch.h"
 #include "headers/filter.h"
 #include "headers/query.h"
+#include "headers/b_tree.h"
 
 void print_rows(std::vector<row>& rows) {
     for (size_t i = 0 ; i < rows.size() ; ++i) {
@@ -27,7 +28,7 @@ bool equal(row& r1, row& r2) {
     return true;
 }
 
-int main(int argc, char **argv) {
+void test_queries() {
     stopwatch sw;
     hor_table htable("C:/Users/kbasi/git/db-indexes/examples/db-hor");
     ver_table vtable("C:/Users/kbasi/git/db-indexes/examples/db-ver");
@@ -89,26 +90,15 @@ int main(int argc, char **argv) {
         }
         
     }
-    
-    // std::vector<row> hrows, vrows;
-    // sw.start();
-    // htable.read_rows(hrows, htable.count());
-    // std::cout << "hor: " << sw.stop() << "\n";
-    // sw.start();
-    // vtable.read_rows(vrows, vtable.count());
-    // std::cout << "ver: " << sw.stop() << "\n";
+}
 
-    // bool results_eq = hrows.size() == vrows.size();
-    // for (int i = 0 ; i < hrows.size(); ++i) {
-    //     results_eq = results_eq && equal(hrows[i], vrows[i]);
-    //     if (!results_eq) {
-    //         // results[i].print_values();
-    //         // std::cout << "..........\n";
-    //         // res2[i].print_values();
-    //         // std::cout << "..........\n";
-    //         std::cout << i << "\n";
-    //     }
-    // }
+int main(int argc, char **argv) {
+    b_tree* btree = new b_tree(3);
+
+    for (int i = 0 ; i < 16; ++i)
+        btree->insert(i);
+        
+    btree->traverse();
 
     return 0;
 }
