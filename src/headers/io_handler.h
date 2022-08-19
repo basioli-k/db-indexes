@@ -42,7 +42,7 @@ public:
                 GENERIC_READ | GENERIC_WRITE,
                 FILE_SHARE_READ,
                 NULL,
-                OPEN_EXISTING,
+                OPEN_ALWAYS,
                 FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH | FILE_FLAG_NO_BUFFERING,
                 NULL
             );
@@ -104,17 +104,23 @@ public:
             buffer.resize(expected_size);
     }
 
-    // void write(std::vector<int32_t>& buffer) {
-    //     _file.write(reinterpret_cast<char*>(buffer.data()), buffer.size() * sizeof(int32_t));
-    // }
+    void write(std::vector<int32_t>& buffer) {
+        size_t old_size = buffer.size();
+        
+        while (buffer.size() % BLOCK_SIZE)
+            buffer.push_back(0);
 
-    // void write(std::vector<int32_t>::iterator it, size_t size) {
-    //     _file.write(reinterpret_cast<char*>(&(*it)), size * sizeof(int32_t));
-    // }
-    
-    // void write_one(int32_t element) {
-    //     _file.write(reinterpret_cast<char*>(&element), sizeof(int32_t));
-    // }
+        auto ret = WriteFile(
+            _file,
+            reinterpret_cast<char*>(buffer.data()), // BLOCK_SIZE is in bytes
+            buffer.size(),
+            NULL,
+            NULL
+        );
+
+        buffer.resize(old_size);
+    }
+
 
     ~io_handler() {
         CloseHandle(_file);

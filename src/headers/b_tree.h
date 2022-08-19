@@ -2,7 +2,7 @@
 #include <iostream>
 #include <vector>
 
-inline int node_id = 0;
+inline int node_id = 0; // TODO remove this, or use it for some reason
 
 class b_tree_node {
     int nid;
@@ -72,12 +72,6 @@ private:
 
         return high + 1;
     }
-    
-    void split() {
-        
-    }
-
-    
 };
 
 
