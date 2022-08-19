@@ -7,7 +7,6 @@ inline int node_id = 0; // TODO remove this, or use it for some reason
 class b_tree_node {
     int nid;
     int _count = 0; // number of keys in node
-    int _deg;
     bool _is_leaf;
     b_tree_node* _parent;
     std::vector<int> _vals;
@@ -17,40 +16,23 @@ public:
     b_tree_node(int degree, bool is_leaf, b_tree_node* parent) : 
             _is_leaf(is_leaf),
             _parent(parent),
-            _deg(degree),
             _vals(degree), // ako je _offset[i], odnosno _children[i] nevazec ovaj _vals[i] je zanemaren
             // _offsets(degree + 1, -1)
-            _children(degree+1, nullptr) { nid = node_id++;}
+            _children(degree+1, nullptr) { 
+                nid = node_id++;
+            }
     friend class b_tree;
 
 private:
-    void traverse(int level = 0) {
-        if (_is_leaf) std::cout << "LEAF ";
-        std::cout << "NODE " << level << "\n";
+    void traverse() {
+        std::cout << "NODE\n";
         for(int i = 0; i < _count ; ++i) 
             std::cout << _vals[i] << " ";
-        
         std::cout << "\n";
         
         if(!_is_leaf) {
             for(int i = 0; i < _count + 1; ++i)
-                _children[i]->traverse(level+1);
-        }
-    }
-
-    // TODO delete this, POC function to check if leaves are connected
-    void traverse_leaves(int level = 0) {
-        if (_is_leaf) {
-            for(int i = 0; i < _count ; ++i)
-                std::cout << _vals[i] << " ";
-            std::cout << "\n";
-        }
-        
-        if (!_is_leaf) {
-            _children[0]->traverse_leaves(level+1);
-        }
-        else if (_children[_deg]){
-            _children[_deg]->traverse_leaves(level+1);
+                _children[i]->traverse();
         }
     }
 
