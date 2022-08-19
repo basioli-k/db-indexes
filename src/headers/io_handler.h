@@ -31,6 +31,14 @@ static std::string GetLastErrorAsString()
     return "";
 }
 
+static bool file_exists(const std::string& file_path)
+{
+  DWORD dwAttrib = GetFileAttributes(file_path.c_str());
+
+  return (dwAttrib != INVALID_FILE_ATTRIBUTES && 
+         !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+}
+
 class io_handler{
     HANDLE _file;
     std::string name;
@@ -112,7 +120,7 @@ public:
 
         auto ret = WriteFile(
             _file,
-            reinterpret_cast<char*>(buffer.data()), // BLOCK_SIZE is in bytes
+            reinterpret_cast<char*>(buffer.data()),
             buffer.size(),
             NULL,
             NULL
@@ -120,7 +128,6 @@ public:
 
         buffer.resize(old_size);
     }
-
 
     ~io_handler() {
         CloseHandle(_file);
