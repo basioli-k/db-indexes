@@ -48,7 +48,7 @@ public:
         // if (_file != INVALID_HANDLE_VALUE) CloseHandle(_file);
         _file = CreateFileA(file_path.c_str(),
                 GENERIC_READ | GENERIC_WRITE,
-                FILE_SHARE_READ,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
                 NULL,
                 OPEN_ALWAYS,
                 FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH | FILE_FLAG_NO_BUFFERING,

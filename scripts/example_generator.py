@@ -19,11 +19,13 @@ np_to_struct = {
 BLOCK_SIZE = 512 # bytes
 
 class ExampleGenerator:
-    def __init__(self, schema : Schema, dists : list):
+    def __init__(self, schema : Schema, dists : list, primary_key : int):
         self.schema = schema
         self.dists = tuple(Dist(dist, self.schema.col_types[i]) for i, dist in enumerate(dists))  #distributions
         self.hor_block = BLOCK_SIZE
         self.ver_block = list(BLOCK_SIZE for _ in self.schema.col_names)
+        self.pk = primary_key
+        self.keys = set()
 
     # TODO add distributions
     def _generate_nums(self, index : int):
@@ -38,7 +40,20 @@ class ExampleGenerator:
             raise ValueError("Unsupported distribution. Distribution", self.dists[index], "was given")
 
     def _generate_records(self, num):
-        records = [tuple(self._generate_nums(i) for i in range(len(self.schema.col_names))) for _ in range(num)]
+        records = []
+        for _ in range(num):
+            record = []
+            for i in range(len(self.schema.col_names)):
+                num = self._generate_nums(i)
+                if i == self.pk:
+                    if num in self.keys:
+                        while num in self.keys:
+                            num = self._generate_nums(i)
+                    self.keys.add(num)
+                record.append(num)
+
+            records.append(tuple(record))
+        
         return records
 
     def _increment_cnt(self, table_path, rec_len):

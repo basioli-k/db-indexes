@@ -53,7 +53,7 @@ public:
 class query {
     std::set<int> _query_dims;
     filter_ptr _filter;
-    uint32_t _limit;
+    uint32_t _limit;    // if limit is 0 then no limit
     query_type _qtype;
     int _agg_dim;
 public:

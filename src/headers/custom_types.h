@@ -58,6 +58,9 @@ public:
     template <typename T>
     db_val(T val) : _val(val) {}
 
+    operator int32_t() {
+        return int32_t(std::get<0>(_val));  //TODO maybe upgrade
+    }
     db_val operator+(const db_val& oth) {
         assert(_val.index() == oth._val.index());
 

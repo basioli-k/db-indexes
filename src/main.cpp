@@ -93,13 +93,12 @@ void test_queries() {
 }
 std::string b_tree_node::path = "C:/Users/kbasi/git/db-indexes/examples/db-hor/index";
 int main(int argc, char **argv) {
-    b_tree btree(3);
-    // TODO not working on restart probably, metadata in btree not updating correctly?
+    hor_table htable("C:/Users/kbasi/git/db-indexes/examples/db-hor");
+    b_tree btree = create_b_tree(htable, 2);
 
-    for (int i = 1 ; i < 5; ++i)
-        btree.insert(i, i);
+    // for (int i = 1 ; i <= 10; ++i)
+    //     btree.insert(i*5, i);
         
-    btree.traverse();
-
+    // btree.traverse();
     return 0;
 }

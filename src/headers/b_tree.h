@@ -1,8 +1,11 @@
 #pragma once
+#include <filesystem>
 #include <iostream>
 #include <vector>
 #include <string>
 #include "io_handler.h"
+#include "query.h"
+#include "hor_table.h"
 #include "common.h"
 
 class b_tree_node {
@@ -14,21 +17,21 @@ class b_tree_node {
 
     int _count = 0; // number of keys in node
     std::vector<int32_t> _vals;
-    
-    int32_t _parent_id = -1; // if parent_id == -1 there is no parent, meaning this is the root
+
     std::vector<int32_t> _ptrs;
 
     // file name is _nid + ".btree"
 
     // first 4 bytes represent value of _count
     // next 4 bytes reprezent _is_leaf
+    // next 4 bytes reprezent _parent
     // then there are _count elements that go to _vals
     // then there are _count + 1 elements that go to _ptrs (in case the node is a leaf, the (_count+1)st element is pointer to next leaf)
     io_handler _node_f;
     
 public:
-    b_tree_node(int degree, int32_t nid, int32_t parent = -1) :
-        _deg(degree), _nid(nid), _vals(degree), _parent_id(parent), _ptrs(degree + 1, -1), 
+    b_tree_node(int degree, int32_t nid) :
+        _deg(degree), _nid(nid), _vals(degree), _ptrs(degree + 1, -1), 
         _node_f(path + maybe_backslash(path) + std::to_string(_nid) + BTREE_SUFF)
     {
         // this is expected to be called only when the file was already created
@@ -36,17 +39,17 @@ public:
         _node_f.read(buff, BLOCK_SIZE / 4);
         _count = buff[0];
         _is_leaf = (buff[1] != 0);
-        
+    
         for ( size_t i = 0; i < _count; ++i ) {
-            _vals[i] = buff[2 + i];
-            _ptrs[i] = buff[2 + _count + i];
+            _vals[i] = buff[TREE_NODE_HDR_LEN + i];
+            _ptrs[i] = buff[TREE_NODE_HDR_LEN + _count + i];
         }
 
-        _ptrs[_is_leaf ? degree : _count] = buff[2 + 2 * _count];
+        _ptrs[_is_leaf ? degree : _count] = buff[TREE_NODE_HDR_LEN + 2 * _count];
     }
 
-    b_tree_node(int degree, int32_t nid, bool is_leaf, int32_t parent = -1) : 
-        _deg(degree), _nid(nid), _is_leaf(is_leaf), _vals(degree), _parent_id(parent), _ptrs(degree + 1, -1),
+    b_tree_node(int degree, int32_t nid, bool is_leaf) : 
+        _deg(degree), _nid(nid), _is_leaf(is_leaf), _vals(degree), _ptrs(degree + 1, -1),
         _node_f(path + maybe_backslash(path) + std::to_string(_nid) + BTREE_SUFF)
     {
         // this constructor only creates and opens the file, we specify wheter the node is a leaf here
@@ -76,14 +79,23 @@ private:
     }
 
     void traverse() {
-        std::cout << "NODE\n";
+        std::cout << "NODE " << _nid << "\n";
+        
+        // temporary
+        if(!_is_leaf) {
+            std::cout << "Children:\n";
+            for(int i = 0; i < _count + 1; ++i)
+                std::cout << _ptrs[i] << " ";
+            std::cout << "\n";
+        }
+        
         for(int i = 0; i < _count ; ++i) 
             std::cout << _vals[i] << " ";
         std::cout << "\n";
         
         if(!_is_leaf) {
             for(int i = 0; i < _count + 1; ++i) {
-                b_tree_node child(_deg, _ptrs[i], _nid);
+                b_tree_node child(_deg, _ptrs[i]);
                 child.traverse();
             }
         }
@@ -115,17 +127,14 @@ class b_tree {
     std::shared_ptr<b_tree_node> _root;
     // contains metadata, first four bytes represent the id of the root
     // next four bytes are the biggest node id used
+
     class metadata {
-        std::unique_ptr<io_handler> _file;
+        std::shared_ptr<io_handler> _file;
         int32_t _root_id = 0;
         int32_t _max_nid = 0;
         const std::string _path;
     public:
         metadata(const std::string& path) : _path(path), _file(nullptr) {}
-
-        void open_md() {
-            _file = std::make_unique<io_handler>(_path);
-        }
         
         void load() {
             if (!_file)
@@ -142,11 +151,17 @@ class b_tree {
             _root_id = rid;
             _max_nid = max_nid;
             std::vector<int32_t> buff{_root_id, _max_nid};
+            _file->seekg(0);
             _file->write(buff);
         }
 
         int32_t root_id() { return _root_id; }
         int32_t max_nid() { return _max_nid; }
+
+    private:
+        void open_md() {
+            _file = std::make_unique<io_handler>(_path);
+        }
     };
     
     metadata _meta;
@@ -157,11 +172,11 @@ public:
 
         if (file_exists(md_path)) { // root already exists
             _meta.load();
-            _root = std::make_unique<b_tree_node>(_deg, _meta.root_id(), -1);
+            _root = std::make_shared<b_tree_node>(_deg, _meta.root_id());
         }
         else { // root doesn't exist create it
-            _meta.open_md();
-            _root = std::make_unique<b_tree_node>(_deg, 0, true, -1);   // 0 is default root id
+            create_ind_folder();
+            _root = std::make_shared<b_tree_node>(_deg, 0, true);   // 0 is default root id
             _meta.update_md(0, 0);
         }
     }
@@ -185,11 +200,11 @@ public:
         while (!cursor->_is_leaf) {
             for(int i = 0 ; i < cursor->_count; ++i) {
                 if (val < cursor->_vals[i]) {
-                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i], cursor->_nid);
+                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i]);
                     break;
                 }
                 if (i == cursor->_count - 1) {
-                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i + 1], cursor->_nid);
+                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i + 1]);
                     break;
                 }
             }
@@ -199,6 +214,10 @@ public:
     }
 
 private:
+    void create_ind_folder() {
+        std::filesystem::create_directories(b_tree_node::path);
+    }
+
     void insert_to_leaf(int32_t val, int32_t offset, std::shared_ptr<b_tree_node> cursor) {
         int ins_ind = cursor->binary_search(val);
         assert(ins_ind == cursor->_vals.size() || cursor->_vals[ins_ind] != val); // duplicates aren't allowed
@@ -215,7 +234,7 @@ private:
         }
 
         _meta.update_md(_meta.root_id(), _meta.max_nid() + 1);
-        auto new_leaf = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), true, cursor->_parent_id);
+        auto new_leaf = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), true);
 
         cursor->_count = (_deg+1) / 2 + (_deg % 2 ? 0 : 1);
         new_leaf->_count = _deg + 1 - cursor->_count;
@@ -236,13 +255,11 @@ private:
         cursor->update_node();
         new_leaf->update_node();
 
-        // edge case, we inserted from the root
+        // edge case, we inserted to the root
         if (cursor == _root) {
             _meta.update_md(_meta.max_nid() + 1, _meta.max_nid() + 1);
-            auto new_root = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), false, -1);
+            auto new_root = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), false);
 
-            cursor->_parent_id = new_root->_nid;
-            new_leaf->_parent_id = new_root->_nid;
             new_root->_vals[0] = new_leaf->_vals[0];
             new_root->_ptrs[0] = cursor->_nid;
             new_root->_ptrs[1] = new_leaf->_nid;
@@ -252,62 +269,101 @@ private:
             return;
         }
 
-        // // because of spliting propagate insertion to higher nodes
-        // insert_internal(new_leaf->_vals[0], new_leaf);
+        // because of spliting propagate insertion to higher nodes
+        insert_internal(new_leaf->_vals[0], new_leaf);
     }
 
-// TODO metadata isn't writing to disk for some reason, debug that, maybe because its a pointer
-//// TODO kad krenes dalje kontroliraj metadata i kontroliraj ptrs, iako ptrs u internal ne bi trebalo raditi probleme
+// TODO kad krenes dalje kontroliraj metadata i kontroliraj ptrs, iako ptrs u internal ne bi trebalo raditi probleme
 
-    // void insert_internal(int val, b_tree_node* child) {
-    //     b_tree_node* parent = child->_parent;
+    void insert_internal(int32_t val, std::shared_ptr<b_tree_node> cursor) {
+        int32_t parent_id = find_parent(cursor);
+        auto parent = parent_id == _meta.root_id() ? _root : std::make_shared<b_tree_node>(_deg, parent_id);
 
-    //     int ins_ind = parent->binary_search(val);
-    //     assert(ins_ind == parent->_vals.size() || parent->_vals[ins_ind] != val); // duplicates aren't allowed
-    //     parent->_vals.insert(parent->_vals.begin() + ins_ind, val);
-    //     parent->_children.insert(parent->_children.begin() + ins_ind + 1, child); // values at child are greater than val
-    //     ++parent->_count;
+        int ins_ind = parent->binary_search(val);
+        assert(ins_ind == parent->_vals.size() || parent->_vals[ins_ind] != val); // duplicates aren't allowed
+        parent->_vals.insert(parent->_vals.begin() + ins_ind, val);
 
-    //     // there was room in the internal node
-    //     if (parent->_count <= _deg) {
-    //         parent->_vals.resize(_deg);
-    //         parent->_children.resize(_deg + 1);
-    //         return;
-    //     }
+        parent->_ptrs.insert(parent->_ptrs.begin() + ins_ind + 1, cursor->_nid); // for +1 check example
+        ++parent->_count;
 
-    //     b_tree_node* new_internal = new b_tree_node(_deg, false, parent->_parent);
+        // there was room in the internal node
+        if (parent->_count <= _deg) {
+            parent->_vals.resize(_deg);
+            parent->_ptrs.resize(_deg + 1);
+            parent->update_node();
+            return;
+        }
 
-    //     parent->_count = (_deg + 1) / 2 + (_deg % 2 ? 0 : 1);
-    //     new_internal->_count = _deg - parent->_count;
+        _meta.update_md(_meta.root_id(), _meta.max_nid() + 1);
+        auto new_internal = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), false);
 
-    //     // copy values to new internal
-    //     for (int i = 0, j = parent->_count + 1; i < new_internal->_count; i++, j++)
-    //         new_internal->_vals[i] = parent->_vals[j];
+        parent->_count = (_deg + 1) / 2 + (_deg % 2 ? 0 : 1);
+        new_internal->_count = _deg - parent->_count;
+
+        // copy values to new internal
+        for (int i = 0, j = parent->_count + 1; i < new_internal->_count; i++, j++)
+            new_internal->_vals[i] = parent->_vals[j];
         
-    //     // copy pointers to new internal
-    //     for (int i = 0, j = parent->_count + 1; i < new_internal->_count + 1; i++, j++) { 
-    //         new_internal->_children[i] = parent->_children[j];
-    //         new_internal->_children[i]->_parent = new_internal;
-    //     }
+        // copy pointers to new internal
+        for (int i = 0, j = parent->_count + 1; i < new_internal->_count + 1; i++, j++)
+            new_internal->_ptrs[i] = parent->_ptrs[j];
 
-    //     parent->_vals.resize(_deg);
-    //     parent->_children.resize(_deg + 1);
+        parent->_vals.resize(_deg);
+        parent->_ptrs.resize(_deg + 1);
 
-    //     if (parent == _root) {
-    //         b_tree_node* new_root = new b_tree_node(_deg, false, -1);
-    //         parent->_parent = new_root;
-    //         new_internal->_parent = new_root;
-    //         new_root->_vals[0] = parent->_vals[parent->_count];
-    //         new_root->_children[0] = parent;
-    //         new_root->_children[1] = new_internal;
-    //         new_root->_count = 1;
-    //         _root = new_root;
-    //         return;
-    //     }
+        parent->update_node();
+        new_internal->update_node();
 
-    //     // recurse
-    //     insert_internal(parent->_vals[parent->_count], new_internal);
-    // }
+        if (parent == _root) {
+            _meta.update_md(_meta.max_nid() + 1, _meta.max_nid() + 1);
+            auto new_root = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), false);
 
-    
+            new_root->_vals[0] = parent->_vals[parent->_count];
+            new_root->_ptrs[0] = parent->_nid;
+            new_root->_ptrs[1] = new_internal->_nid;
+            new_root->_count = 1;
+            _root = new_root;
+
+            new_root->update_node();
+            return;
+        }
+
+        // recurse
+        insert_internal(parent->_vals[parent->_count], new_internal);
+    }
+
+    int32_t find_parent(std::shared_ptr<b_tree_node> child) {
+        auto cursor = _root;
+        auto val = child->_vals[0];
+
+        while (std::find(cursor->_ptrs.begin(), cursor->_ptrs.begin() + cursor->_count, child->_nid) == cursor->_ptrs.end() && !cursor->_is_leaf) {
+            for(int i = 0 ; i < cursor->_count; ++i) {
+                if (val < cursor->_vals[i]) {
+                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i]);
+                    break;
+                }
+                if (i == cursor->_count - 1) {
+                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i + 1]);
+                    break;
+                }
+            }
+        }
+
+        return cursor->_is_leaf ? -1 : cursor->_nid;
+    }
 };
+
+// creates btree on col col_index
+static b_tree create_b_tree(hor_table& table, size_t col_index) {
+    b_tree btree(NODE_PARAM);
+    query q(nullptr, query_type::star, 0); // select all
+
+    auto res = table.execute_query(q);
+
+    for(size_t i = 0 ; i < res.size(); ++i) {
+        auto val = res.rows()[i].get_val(col_index);
+        btree.insert(int32_t(val), i);  // TODO works for int32_t
+    }
+
+    return btree;
+}
