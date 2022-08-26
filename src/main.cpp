@@ -94,11 +94,22 @@ void test_queries() {
 std::string b_tree_node::path = "C:/Users/kbasi/git/db-indexes/examples/db-hor/index";
 int main(int argc, char **argv) {
     hor_table htable("C:/Users/kbasi/git/db-indexes/examples/db-hor");
-    b_tree btree = create_b_tree(htable, 2);
+    // b_tree btree = create_b_tree(htable, 2);
 
-    // for (int i = 1 ; i <= 10; ++i)
-    //     btree.insert(i*5, i);
-        
-    // btree.traverse();
+    b_tree btree(NODE_PARAM);
+    
+    query q(nullptr, query_type::star, 0); // select all
+    auto res = htable.execute_query(q);
+
+    for(size_t i = 0 ; i < res.size(); ++i) {
+        auto val = res.rows()[i].get_val(2);
+        if (btree.search(int32_t(val)) != i) {
+            std::cout << "greska " << int32_t(val) << " " << i << "\n";
+            break;
+        }
+    }
+
+    std::cout << "Done\n";
+
     return 0;
 }

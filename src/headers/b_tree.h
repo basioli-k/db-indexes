@@ -54,6 +54,7 @@ public:
     {
         // this constructor only creates and opens the file, we specify wheter the node is a leaf here
         // TODO maybe sanity check that file didn't already exist
+
         update_node();
     }
     friend class b_tree;
@@ -79,9 +80,10 @@ private:
     }
 
     void traverse() {
+        if (_is_leaf) std::cout << "LEAF ";
         std::cout << "NODE " << _nid << "\n";
         
-        // temporary
+        // TODO temporary
         if(!_is_leaf) {
             std::cout << "Children:\n";
             for(int i = 0; i < _count + 1; ++i)
@@ -89,6 +91,7 @@ private:
             std::cout << "\n";
         }
         
+        std::cout << "Vals:\n";
         for(int i = 0; i < _count ; ++i) 
             std::cout << _vals[i] << " ";
         std::cout << "\n";
@@ -186,6 +189,29 @@ public:
         _root->traverse();
     }
    
+    int32_t search(int32_t val) {
+        auto cursor = _root;
+        auto leaf = std::make_shared<b_tree_node>(_deg, 227);
+        auto br = find_parent(leaf);
+
+        while (!cursor->_is_leaf) {
+            for(int i = 0 ; i < cursor->_count; ++i) {
+                if (val < cursor->_vals[i]) {
+                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i]);
+                    break;
+                }
+                if (i == cursor->_count - 1) {
+                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i + 1]);
+                    break;
+                }
+            }
+        }
+        auto index = cursor->binary_search(val);
+        if (val == cursor->_vals[index]) 
+            return cursor->_ptrs[index];
+        return -1;
+    }
+
     void insert(int32_t val, int32_t offset) {
         if (_root->is_empty()) {
             _root->_vals[0] = val;
@@ -228,12 +254,14 @@ private:
         // there was room in the leaf
         if (cursor->_count <= _deg) {
             cursor->_vals.resize(_deg);
+            cursor->_ptrs[_deg] = cursor->_ptrs[cursor->_ptrs.size() - 1];
             cursor->_ptrs.resize(_deg + 1);
             cursor->update_node();
             return;
         }
 
         _meta.update_md(_meta.root_id(), _meta.max_nid() + 1);
+     
         auto new_leaf = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), true);
 
         cursor->_count = (_deg+1) / 2 + (_deg % 2 ? 0 : 1);
@@ -246,7 +274,7 @@ private:
         }
 
         // update the last pointer in each children list
-        new_leaf->_ptrs[_deg] = cursor->_ptrs[_deg + 1];    // real last pointer is at _deg + 1 because we inserted a ptr
+        new_leaf->_ptrs[_deg] = cursor->_ptrs[_deg+1];    // real last pointer is at _deg + 1 because we inserted a ptr
         cursor->_ptrs[_deg] = new_leaf->_nid; // the last pointer always shows to the adjacent leaf
 
         // resize the vector so we don't get a memory leak and so the code up there is valid
@@ -256,7 +284,7 @@ private:
         new_leaf->update_node();
 
         // edge case, we inserted to the root
-        if (cursor == _root) {
+        if (cursor->_nid == _root->_nid) {
             _meta.update_md(_meta.max_nid() + 1, _meta.max_nid() + 1);
             auto new_root = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), false);
 
@@ -270,15 +298,13 @@ private:
         }
 
         // because of spliting propagate insertion to higher nodes
-        insert_internal(new_leaf->_vals[0], new_leaf);
+        
+        int32_t par_id = find_parent(cursor);
+        auto parent = par_id == _root->_nid ? _root : std::make_shared<b_tree_node>(_deg, par_id);
+        insert_internal(new_leaf->_vals[0], new_leaf, parent);
     }
 
-// TODO kad krenes dalje kontroliraj metadata i kontroliraj ptrs, iako ptrs u internal ne bi trebalo raditi probleme
-
-    void insert_internal(int32_t val, std::shared_ptr<b_tree_node> cursor) {
-        int32_t parent_id = find_parent(cursor);
-        auto parent = parent_id == _meta.root_id() ? _root : std::make_shared<b_tree_node>(_deg, parent_id);
-
+    void insert_internal(int32_t val, std::shared_ptr<b_tree_node> cursor, std::shared_ptr<b_tree_node> parent) {
         int ins_ind = parent->binary_search(val);
         assert(ins_ind == parent->_vals.size() || parent->_vals[ins_ind] != val); // duplicates aren't allowed
         parent->_vals.insert(parent->_vals.begin() + ins_ind, val);
@@ -297,11 +323,12 @@ private:
         _meta.update_md(_meta.root_id(), _meta.max_nid() + 1);
         auto new_internal = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), false);
 
-        parent->_count = (_deg + 1) / 2 + (_deg % 2 ? 0 : 1);
+        parent->_count = _deg / 2 + (_deg % 2);
         new_internal->_count = _deg - parent->_count;
 
         // copy values to new internal
-        for (int i = 0, j = parent->_count + 1; i < new_internal->_count; i++, j++)
+        // j = parent->_count + 1 (+1 because the middle one is going to be used for spliting between the two nodes)
+        for (int i = 0, j = parent->_count + 1; i < new_internal->_count; i++, j++) 
             new_internal->_vals[i] = parent->_vals[j];
         
         // copy pointers to new internal
@@ -314,7 +341,7 @@ private:
         parent->update_node();
         new_internal->update_node();
 
-        if (parent == _root) {
+        if (parent->_nid == _root->_nid) {
             _meta.update_md(_meta.max_nid() + 1, _meta.max_nid() + 1);
             auto new_root = std::make_shared<b_tree_node>(_deg, _meta.max_nid(), false);
 
@@ -329,14 +356,18 @@ private:
         }
 
         // recurse
-        insert_internal(parent->_vals[parent->_count], new_internal);
+        int32_t int_par_id = find_parent(parent);
+        auto internal_parent = int_par_id == _root->_nid ? _root : std::make_shared<b_tree_node>(_deg, int_par_id);
+        insert_internal(parent->_vals[parent->_count], new_internal, internal_parent);
     }
 
     int32_t find_parent(std::shared_ptr<b_tree_node> child) {
         auto cursor = _root;
         auto val = child->_vals[0];
 
-        while (std::find(cursor->_ptrs.begin(), cursor->_ptrs.begin() + cursor->_count, child->_nid) == cursor->_ptrs.end() && !cursor->_is_leaf) {
+        while (std::find(cursor->_ptrs.begin(), cursor->_ptrs.begin() + cursor->_count + 1, child->_nid) == (cursor->_ptrs.begin() + cursor->_count + 1) 
+            && !cursor->_is_leaf) 
+        {
             for(int i = 0 ; i < cursor->_count; ++i) {
                 if (val < cursor->_vals[i]) {
                     cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i]);
