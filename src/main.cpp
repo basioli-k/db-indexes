@@ -9,6 +9,7 @@
 #include "headers/filter.h"
 #include "headers/query.h"
 #include "headers/b_tree.h"
+#include "headers/hash_index.h"
 
 void print_rows(std::vector<row>& rows) {
     for (size_t i = 0 ; i < rows.size() ; ++i) {
@@ -91,8 +92,8 @@ void test_queries() {
         
     }
 }
-std::string b_tree_node::path = "C:/Users/kbasi/git/db-indexes/examples/db-hor/index";
-int main(int argc, char **argv) {
+
+void test_b_tree() {
     hor_table htable("C:/Users/kbasi/git/db-indexes/examples/db-hor");
     // b_tree btree = create_b_tree(htable, 2);
 
@@ -108,8 +109,36 @@ int main(int argc, char **argv) {
             break;
         }
     }
+}
 
+void test_hash() {
+    hor_table htable("C:/Users/kbasi/git/db-indexes/examples/db-hor");
+
+    // hash_index hind = create_hash_index(htable, 2);
+    hash_index hind((htable.count() / ENTRIES_PER_BLOCK) + 1);
+    
+    query q(nullptr, query_type::star, 0); // select all
+    auto res = htable.execute_query(q);
+
+    for(size_t i = 0 ; i < res.size(); ++i) {
+        auto val = res.rows()[i].get_val(2);
+        if (hind.search(int32_t(val)) != i) {
+            std::cout << "greska " << int32_t(val) << " " << i << "\n";
+            break;
+        }
+    }
     std::cout << "Done\n";
+}
+
+std::string b_tree_node::path = "C:/Users/kbasi/git/db-indexes/examples/db-hor/btree";
+std::string bucket_block::path = "C:/Users/kbasi/git/db-indexes/examples/db-hor/hash_ind";
+
+int main(int argc, char **argv) {
+    // get number of reads somehow (for indexes)
+    // write search_range for btree (should be easy)
+    // put indexes in execute query
+    // test
+    // execute real tests and measure performance
 
     return 0;
 }
