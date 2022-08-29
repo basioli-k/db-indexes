@@ -12,11 +12,22 @@
 
 class hor_table : public table {
     io_handler _table_handler;
+    int _no_of_reads = 0;
 public:
-    int reads_num = 0;
     hor_table(const std::string& table_path) : table(table_path),
         _table_handler(table_path + maybe_backslash(table_path) +  _schema.get_name() + HOR_TABLE_SUFF) {}
 
+    int no_of_reads() {
+        _no_of_reads += _table_handler.no_of_reads();
+        return _no_of_reads;
+    }
+
+    int reset_reads() {
+        _table_handler.reset_reads();
+        _no_of_reads = 0;
+    }
+    
+    // TODO when writing execution with index don't forget to add no_of_reads from index
     query_res execute_query(query& q) {
         query_res qres(q.qtype());
 
@@ -29,7 +40,6 @@ public:
         std::vector<int32_t> rows_data;
 
         for( ; total_rows ; ) {
-            reads_num++;
             _table_handler.read(rows_data, rows_in_block * row_size / 4);
             for(size_t i = 0; i < rows_data.size() && total_rows; ) {
                 std::vector<int32_t> row_data;

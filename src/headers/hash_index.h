@@ -50,8 +50,11 @@ class bucket_block {
     std::vector<int32_t> _offsets;
     int32_t _bid; // TODO remove, not needed
     std::unique_ptr<io_handler> _file;
+
+    int _no_of_reads = 0;
 public:
     bucket_block(int32_t bid, hash::metadata& meta) : _meta(meta), _bid(bid) {
+        _no_of_reads++;
         auto file_path = path + maybe_backslash(path) + std::to_string(bid) + HASH_SUFF;
 
         if(!file_exists(file_path)) {
@@ -75,6 +78,10 @@ public:
             _offsets.push_back(buff[HASH_BLOCK_HDR_LEN / 4 + _count + i]);
         }
     }
+
+    int no_of_reads() { return _no_of_reads; }
+
+    void reset_reads() { _no_of_reads = 0; }
 
     friend class hash_index;
 private:
@@ -112,8 +119,12 @@ private:
             return -1;
 
         bucket_block next(_next, _meta);
+        _no_of_reads++;
 
-        return next.search(val);
+        int32_t res = next.search(val);
+        _no_of_reads = next.no_of_reads() - 1;
+
+        return res;
     }
 
     void update_block() {
@@ -129,6 +140,7 @@ private:
 class hash_index {
 private:
     int32_t B; // number of blocks
+    int _no_of_reads = 0;
     hash::metadata _meta;
 
 public:
@@ -149,9 +161,14 @@ public:
         bl.insert(val, offset);
     }
 
+    int no_of_reads() { return _no_of_reads; }
+    void reset_reads() { _no_of_reads = 0; }
+
     int32_t search(int32_t val) {
         bucket_block bl(hash_int32(val), _meta);
-        return bl.search(val);
+        int32_t result = bl.search(val);
+        _no_of_reads += bl.no_of_reads();
+        return result;
     }
 
 private:

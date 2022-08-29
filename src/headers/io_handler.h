@@ -42,6 +42,7 @@ static bool file_exists(const std::string& file_path)
 class io_handler{
     HANDLE _file;
     std::string name;
+    int _no_of_reads = 0;
 public:
     // io_handler() {}
     io_handler(const std::string& file_path) : name(file_path) {
@@ -57,6 +58,14 @@ public:
         
         if (_file == INVALID_HANDLE_VALUE)
             throw std::exception("File opening failed.\n");
+    }
+
+    int no_of_reads() {
+        return _no_of_reads;
+    }
+
+    void reset_reads() {
+        _no_of_reads = 0;
     }
 
     void seekg(size_t offset) {
@@ -93,6 +102,7 @@ public:
         buffer.resize(buffer.size() + actual_read_size);
         
         for (size_t i = 0; i < batch_num; ++i) {
+            _no_of_reads++;
             auto ret = ReadFile(
                 _file,
                 reinterpret_cast<char*>(buffer.data() + buffer.size() - actual_read_size + i * BLOCK_SIZE / 4), // BLOCK_SIZE is in bytes

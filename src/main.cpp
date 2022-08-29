@@ -64,13 +64,9 @@ void test_queries() {
             
             auto results = htable.execute_query(queries[i]);
             std::cout << "query hor: " << sw.stop() << "\n";
-            std::cout << "reads: " << htable.reads_num << "\n";
-            htable.reads_num = 0;
             sw.start();
             auto res2 = vtable.execute_query(queries[i]);
             std::cout << "query ver: " << sw.stop() << "\n";
-            std::cout << "reads: " << vtable.reads_num << "\n";
-            vtable.reads_num = 0;
 
             bool results_eq = results.size() == res2.size();
             for (int i = 0 ; i < results.size(); ++i) {
@@ -134,7 +130,6 @@ std::string b_tree_node::path = "C:/Users/kbasi/git/db-indexes/examples/db-hor/b
 std::string bucket_block::path = "C:/Users/kbasi/git/db-indexes/examples/db-hor/hash_ind";
 
 int main(int argc, char **argv) {
-    // get number of reads somehow (for indexes)
     // write search_range for btree (should be easy)
     // put indexes in execute query
     // test

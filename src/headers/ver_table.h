@@ -14,7 +14,6 @@ class ver_table : public table {
     std::vector<int32_t> _entries_in_block;
 
 public:
-    int reads_num = 0;
     ver_table(const std::string& table_path) : table(table_path)
     {
         auto col_num = _schema.col_num();
@@ -27,6 +26,15 @@ public:
             _col_sizes.push_back(get_size(_schema.get_column(dim).type) / 4);
             _entries_in_block.push_back(BLOCK_SIZE / (_col_sizes[dim] * 4));
         }
+    }
+
+    int no_of_reads() {
+        return std::accumulate(_col_handlers.begin(), _col_handlers.end(), 0, [](int sum, auto& col){ return sum + col.no_of_reads(); });
+    }
+
+    int reset_reads() {
+        for(auto& col : _col_handlers)
+            col.reset_reads();
     }
 
     query_res execute_query(query& q) {
@@ -59,7 +67,6 @@ public:
                         continue;
                     col_index[dim] = 0;
                     cols[dim].clear();
-                    reads_num++;
                     _col_handlers[dim].read(cols[dim], _entries_in_block[dim] * _col_sizes[dim]);
                 }
                 // get smallest no of _entries_in_block from queried dims, that is the no of rows we process
@@ -108,7 +115,6 @@ public:
 
                 cols[dim].clear();
                 while (blocks_to_read--) {    // force multiple block reads
-                    reads_num++;
                     _col_handlers[dim].read(cols[dim], _entries_in_block[dim] * _col_sizes[dim]);
                 }
             }

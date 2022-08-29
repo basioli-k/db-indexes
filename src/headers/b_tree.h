@@ -128,8 +128,7 @@ private:
 class b_tree {
     int _deg;
     std::shared_ptr<b_tree_node> _root;
-    // contains metadata, first four bytes represent the id of the root
-    // next four bytes are the biggest node id used
+    int _no_of_reads = 0; // variable for counting reads
 
     class metadata {
         std::shared_ptr<io_handler> _file;
@@ -188,20 +187,24 @@ public:
         if(_root->is_empty()) return;
         _root->traverse();
     }
+
+    int no_of_reads() { return _no_of_reads; }
+
+    void reset_reads() { _no_of_reads = 0; }
    
     int32_t search(int32_t val) {
         auto cursor = _root;
-        auto leaf = std::make_shared<b_tree_node>(_deg, 227);
-        auto br = find_parent(leaf);
 
         while (!cursor->_is_leaf) {
             for(int i = 0 ; i < cursor->_count; ++i) {
                 if (val < cursor->_vals[i]) {
                     cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i]);
+                    _no_of_reads++;
                     break;
                 }
                 if (i == cursor->_count - 1) {
                     cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i + 1]);
+                    _no_of_reads++;
                     break;
                 }
             }
@@ -210,6 +213,30 @@ public:
         if (val == cursor->_vals[index]) 
             return cursor->_ptrs[index];
         return -1;
+    }
+
+    // includes low and high
+    std::vector<int32_t> search_range(int32_t low, int32_t high) {
+        std::vector<int32_t> results;
+        auto cursor = _root;
+
+        while (!cursor->_is_leaf) {
+            for(int i = 0 ; i < cursor->_count; ++i) {
+                if (low < cursor->_vals[i]) {
+                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i]);
+                    _no_of_reads++;
+                    break;
+                }
+                if (i == cursor->_count - 1) {
+                    cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[i + 1]);
+                    _no_of_reads++;
+                    break;
+                }
+            }
+        }
+        results.shrink_to_fit();
+
+        return results;
     }
 
     void insert(int32_t val, int32_t offset) {
