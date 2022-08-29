@@ -48,7 +48,6 @@ public:
                 row r(row_data, _schema);
 
                 if (q.is_satisfied(r)){
-                    // TODO priprema rezultata ovdje
                     if (q.qtype() == query_type::star)
                         qres.add(r);
                     else {
@@ -70,6 +69,33 @@ public:
 
         qres.shrink_to_fit();
         return qres;
+    }
+
+    void query_by_offsets(std::vector<row>& rows, std::vector<int32_t>& offsets) {
+        std::sort(offsets.begin(), offsets.end());
+        auto row_size = _schema.row_size();
+        int32_t rows_in_block = BLOCK_SIZE / row_size;
+
+        std::set<int32_t> blocks_to_read;
+        for (auto offset : offsets)
+            blocks_to_read.insert((offset / rows_in_block) * BLOCK_SIZE);
+
+        std::vector<int32_t> rows_data;
+        size_t offset_ind = 0;
+        for (auto block : blocks_to_read) {
+            _table_handler.seekg(block);
+            _table_handler.read(rows_data, rows_in_block * row_size / 4);
+            while ( offset_ind < offsets.size() && (offsets[offset_ind] / rows_in_block) * BLOCK_SIZE == block ) {
+                size_t rw_dat_ind = (offsets[offset_ind] * (row_size / 4)) % rows_data.size();
+                std::vector<int32_t> row_data;
+                size_t to_copy = row_size / 4;
+                while (to_copy--) row_data.push_back(rows_data[rw_dat_ind++]);
+                row r(row_data, _schema);
+                rows.emplace_back(r);
+                offset_ind++;
+            }
+            rows_data.clear();
+        }
     }
 
 

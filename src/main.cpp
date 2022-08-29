@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <thread>
+#include <memory>
 #include <fstream>
 #include "headers/hor_table.h"
 #include "headers/ver_table.h"
@@ -94,17 +95,20 @@ void test_b_tree() {
     // b_tree btree = create_b_tree(htable, 2);
 
     b_tree btree(NODE_PARAM);
-    
-    query q(nullptr, query_type::star, 0); // select all
-    auto res = htable.execute_query(q);
 
-    for(size_t i = 0 ; i < res.size(); ++i) {
-        auto val = res.rows()[i].get_val(2);
-        if (btree.search(int32_t(val)) != i) {
-            std::cout << "greska " << int32_t(val) << " " << i << "\n";
-            break;
-        }
-    }
+    auto res = btree.search_range(0, 10000);
+
+    // FOR TESTING IF OFFSETS ARE CORRECT
+    // query q(nullptr, query_type::star, 0); // select all
+    // auto res = htable.execute_query(q);
+
+    // for(size_t i = 0 ; i < res.size(); ++i) {
+    //     auto val = res.rows()[i].get_val(2);
+    //     if (btree.search(int32_t(val)) != i) {
+    //         std::cout << "greska " << int32_t(val) << " " << i << "\n";
+    //         break;
+    //     }
+    // }
 }
 
 void test_hash() {
@@ -126,14 +130,46 @@ void test_hash() {
     std::cout << "Done\n";
 }
 
+void test_b_tree_query() {
+    hor_table htable("C:/Users/kbasi/git/db-indexes/examples/db-hor");
+    b_tree btree(NODE_PARAM);
+
+    auto offsets = btree.search_range(0, 10000);
+    std::vector<filter_ptr> vec;
+
+    auto low = std::make_unique<filter>(op::gt, std::move(vec), db_val((int32_t) -1), 2);
+    auto high = std::make_unique<filter>(op::lt, std::move(vec), db_val((int32_t) 10001), 2);
+
+    vec.push_back(std::move(low));
+    vec.push_back(std::move(high));
+
+    auto fil = std::make_unique<filter>(op::land, std::move(vec));
+    query q(std::move(fil), query_type::star, 0);
+
+    auto no_index_rows = htable.execute_query(q);
+
+    std::vector<row> btree_rows;
+
+    htable.query_by_offsets(btree_rows, offsets);
+
+    bool results_eq = btree_rows.size() == no_index_rows.size();
+    for (int i = 0 ; i < no_index_rows.size(); ++i) {
+        results_eq = results_eq && equal(no_index_rows.rows()[i], btree_rows[i]);
+    }
+
+    std::cout << "rows num: " << no_index_rows.size() << "\n";
+    std::cout << "Results eq variable is: " << results_eq << "\n";
+}
+
 std::string b_tree_node::path = "C:/Users/kbasi/git/db-indexes/examples/db-hor/btree";
 std::string bucket_block::path = "C:/Users/kbasi/git/db-indexes/examples/db-hor/hash_ind";
 
 int main(int argc, char **argv) {
-    // write search_range for btree (should be easy)
     // put indexes in execute query
     // test
     // execute real tests and measure performance
+    
+    test_b_tree_query();
 
     return 0;
 }

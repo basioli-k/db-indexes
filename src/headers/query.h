@@ -66,6 +66,8 @@ public:
             _filter->get_filter_dims(_query_dims);
         _query_dims.insert(agg_dim);
     }
+
+    // 0 means no row limit
     query(filter_ptr f, query_type qtype, uint32_t row_limit) : _filter(std::move(f)), _limit(row_limit),
         _qtype(qtype) 
     {

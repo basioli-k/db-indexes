@@ -234,6 +234,21 @@ public:
                 }
             }
         }
+
+        int32_t curr_val = cursor->_vals[0];
+        while (curr_val <= high) {
+            for (size_t i = 0; i < cursor->_count ; ++i) {
+                curr_val = cursor->_vals[i];
+                if ( curr_val >= low && curr_val <= high )
+                    results.push_back(cursor->_ptrs[i]);
+            }
+
+            if (cursor->_ptrs[_deg] == -1 || curr_val > high) 
+                break;
+            cursor = std::make_shared<b_tree_node>(_deg, cursor->_ptrs[_deg]);
+            _no_of_reads++;
+        }
+
         results.shrink_to_fit();
 
         return results;
