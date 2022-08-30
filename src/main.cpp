@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
     // test
     // execute real tests and measure performance
     
-    test_b_tree_query();
+    test_hash();
 
     return 0;
 }
