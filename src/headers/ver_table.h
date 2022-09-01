@@ -57,9 +57,10 @@ public:
         for(auto dim : q_dims)
             _col_handlers[dim].seekg(0);
         
+        int32_t min_entries_in_block = std::numeric_limits<int32_t>::max(); // min entries in queried blocks
         for(size_t row_index = 0; row_index < total_rows ;) {
             std::vector<size_t> rows_to_use;
-
+            
             if (q_dims.size()) {
                 // get columns referenced in query
                 for (auto dim : q_dims) {
@@ -71,7 +72,7 @@ public:
                 }
                 // get smallest no of _entries_in_block from queried dims, that is the no of rows we process
                 // in a block   
-                int32_t min_entries_in_block = std::numeric_limits<int32_t>::max();
+                
                 for (auto dim : q_dims)
                     min_entries_in_block = std::min(_entries_in_block[dim], min_entries_in_block);
 
@@ -107,7 +108,9 @@ public:
             // decide which blocks to read
             // read remaining cols
             for (size_t dim = 0; dim < cols.size(); ++dim) {
-                if (q_dims.contains(dim)) continue; // skip queried dims
+                if (q_dims.contains(dim) || col_index[dim] < _entries_in_block[dim])
+                    continue; // skip queried dims
+                col_index[dim] = 0;
                 _col_handlers[dim].seekg((rows_to_use[0] / _entries_in_block[dim]) * BLOCK_SIZE);
                 
                 int blocks_to_read = (rows_to_use[rows_to_use.size() - 1] / _entries_in_block[dim]) -
@@ -117,6 +120,7 @@ public:
                 while (blocks_to_read--) {    // force multiple block reads
                     _col_handlers[dim].read(cols[dim], _entries_in_block[dim] * _col_sizes[dim]);
                 }
+                col_index[dim] += min_entries_in_block;
             }
             
             if (q_dims.empty()) {
@@ -128,6 +132,7 @@ public:
                         return qres;
                     }
                 }
+                return qres;
             } 
             else {
                 // prepare row data

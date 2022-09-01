@@ -22,7 +22,7 @@ public:
         return _no_of_reads;
     }
 
-    int reset_reads() {
+    void reset_reads() {
         _table_handler.reset_reads();
         _no_of_reads = 0;
     }

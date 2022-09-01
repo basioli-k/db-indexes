@@ -98,7 +98,6 @@ private:
         if( _next == -1 ) { // continue chain if needed
             _meta.update_md(_meta.max_bid() + 1);
             _next = _meta.max_bid();
-            std::cout << "LOG: chain to " << _next << "\n";
             update_block();
         }
 

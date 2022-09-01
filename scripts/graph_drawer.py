@@ -1,48 +1,126 @@
-import argparse
-from ctypes.wintypes import RGB
+import pandas as pd
 from pathlib import Path
-from matplotlib import pyplot as plt 
-import random
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-def read_data(path: Path):
-    with path.open() as file:
-        bytes = [ int(line.split(",")[0]) for line in file.readlines() ]
-    with path.open() as file:
-        times = [ int(line.split(",")[1]) for line in file.readlines() ]
-    return bytes, times
+file_to_name = {
+    "select_all": "Dohvat svih zapisa",
+    "select_all_sum": "Suma svih zapisa",
+    "filter_by_one_col_sum": "Suma, filter po jednom stupcu",
+    "filter_by_one_col": "Filter po jednom stupcu",
+    "filter_by_two_col": "Filter po dva stupca",
+    "index_search_range_test": "Pretraživanje raspona",
+    "index_search_test": "Traženje po primarnom ključu",
+    "no_index_prim_key": "Traženje po primarnom ključu",
+}
 
-def median(arr: list):
-    arr.sort()
-    if len(arr) % 2:
-        return arr[len(arr) // 2]
-    else:
-        return (arr[len(arr) // 2] + arr[len(arr) // 2 - 1]) / 2
 
-def draw_data(x, y):
-    plt.scatter(x, y)
-    plt.show()
+
+def plot(data, file_name):
+    prepared_data = { 
+        "Način smještaja": ["Horizontalni", "Vertikalni"],
+        "Broj čitanja": [data[1], data[3]],
+        "Vrijeme izvršavanja": [data[0] / (10**9), data[2] / (10**9)]
+    }
+
+    sns.barplot(x="Način smještaja", y="Broj čitanja", palette = 'hls', data=prepared_data).set(ylabel = "Broj čitanja")
+    plt.savefig("scripts/graphs/" + file_name + "_reads.png")
+    plt.close()
+
+    sns.barplot(x="Način smještaja", y="Vrijeme izvršavanja", palette = 'hls', data=prepared_data).set(ylabel = "Vrijeme izvršavanja (s)")
+    plt.savefig("scripts/graphs/" + file_name + "_time.png")
+
+def plot_no_ind_prim(data, file_name):
+    prep_read = {
+        "Horizontalni": [el[1] for el in data],
+        "Vertikalni": [el[3] for el in data]
+    }
+
+    prep_time = {
+        "Horizontalni": [el[0] / (10**9) for el in data],
+        "Vertikalni": [el[2] / (10**9) for el in data]
+    }
+
+    prepared_read = pd.DataFrame(prep_read)
+    prepared_time = pd.DataFrame(prep_time)
+
+    sns.lineplot(data = prepared_read, marker="o", dashes=False).set(ylabel = "Broj čitanja")
+    plt.savefig("scripts/graphs/" + file_name + "_reads.png")
+
+    plt.close()
+    sns.lineplot(data = prepared_time, marker="o", dashes=False).set(ylabel = "Vrijeme izvršavanja (s)")
+    plt.savefig("scripts/graphs/" + file_name + "_time.png")
+
+def plot_ind_prim(data, file_name):
+    prep_read = {
+        # "Horizontalni": [el[1] for el in data],
+        "B stablo": [el[3] for el in data],
+        "Hash indeks": [el[5] for el in data]
+    }
+
+    prep_time = {
+        # "Horizontalni": [el[0] / (10**9) for el in data],
+        "B stablo": [el[2] / (10**9) for el in data],
+        "Hash indeks": [el[4] / (10**9) for el in data]
+    }
+
+    prepared_read = pd.DataFrame(prep_read)
+    prepared_time = pd.DataFrame(prep_time)
+
+    sns.lineplot(data = prepared_read, marker="o", dashes=False).set(ylabel = "Broj čitanja")
+    plt.savefig("scripts/graphs/" + file_name + "_reads.png")
+
+    plt.close()
+    sns.lineplot(data = prepared_time, marker="o", dashes=False).set(ylabel = "Vrijeme izvršavanja (s)")
+    plt.savefig("scripts/graphs/" + file_name + "_time.png")
+
+def plot_range(data, file_name):
+    prep_read = {
+        "Horizontalni": [el[1] for el in data],
+        "B stablo": [el[3] for el in data]
+    }
+
+    prep_time = {
+        "Horizontalni": [el[0] / (10**9) for el in data],
+        "B stablo": [el[2] / (10**9) for el in data]
+    }
+
+    prepared_read = pd.DataFrame(prep_read)
+    prepared_time = pd.DataFrame(prep_time)
+
+    sns.barplot(palette = 'hls', data=prepared_read).set(ylabel = "Broj čitanja")
+    plt.savefig("scripts/graphs/" + file_name + "_reads.png")
+    plt.close()
+
+    sns.barplot(palette = 'hls', data=prepared_time).set(ylabel = "Vrijeme izvršavanja (s)")
+    plt.savefig("scripts/graphs/" + file_name + "_time.png")
+
+    # sns.lineplot(data = prepared_read, marker="o", dashes=False).set(ylabel = "Broj čitanja")
+    # plt.savefig("scripts/graphs/" + file_name + "_reads.png")
+
+    # plt.close()
+    # sns.lineplot(data = prepared_time, marker="o", dashes=False).set(ylabel = "Vrijeme izvršavanja (s)")
+    # plt.savefig("scripts/graphs/" + file_name + "_time.png")
 
 def main():
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("--path", "-p", help="Path to folder with results.", type=Path, required=True)
-    arg_parser.add_argument("--num", "-n", help="Files num.", type=int, required=True)
-    args = arg_parser.parse_args()
+    results_root = Path("results")
 
-    bytes_per_t = {}
-    for i in range(args.num):
-        bytes, times = read_data((args.path / f"results{i}").with_suffix(".txt"))
-        for j, b in enumerate(bytes):
-            if b not in bytes_per_t:
-                bytes_per_t[b] = []
-            bytes_per_t[b].append(b / times[j])
-    
-    for b in bytes_per_t:
-        bytes_per_t[b] = median(bytes_per_t[b])
-    
-    print(bytes_per_t)
-    print(max(bytes_per_t, key=bytes_per_t.get))
-    print({k: v for k, v in sorted(bytes_per_t.items(), key=lambda item: item[1])})
+    # for file in results_root.iterdir():
+    #     if file.is_file():
+    #         data = []
+    #         with file.open() as f:
+    #             line = f.readlines()[0]
+    #             data = [int(el) for el in line.split(",")]
+    #         plot(data, file.stem)
 
+    primary = results_root / "primary" / "index_search_range_test.txt"
+    
+    data = []
+    with primary.open() as f:
+        for line in f.readlines():
+            data.append(tuple(int(el) for el in line.split(",")))
+
+    plot_range(data, primary.stem)
 
 if __name__ == "__main__":
     main()
