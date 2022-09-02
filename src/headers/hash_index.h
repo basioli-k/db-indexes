@@ -121,7 +121,7 @@ private:
         _no_of_reads++;
 
         int32_t res = next.search(val);
-        _no_of_reads = next.no_of_reads() - 1;
+        _no_of_reads += next.no_of_reads() - 1;
 
         return res;
     }

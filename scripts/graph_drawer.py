@@ -113,14 +113,14 @@ def main():
     #             data = [int(el) for el in line.split(",")]
     #         plot(data, file.stem)
 
-    primary = results_root / "primary" / "index_search_range_test.txt"
+    primary = results_root / "primary" / "index_search_test.txt"
     
     data = []
     with primary.open() as f:
         for line in f.readlines():
             data.append(tuple(int(el) for el in line.split(",")))
 
-    plot_range(data, primary.stem)
+    plot_ind_prim(data, primary.stem)
 
 if __name__ == "__main__":
     main()
