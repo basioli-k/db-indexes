@@ -44,11 +44,11 @@ def plot_no_ind_prim(data, file_name):
     prepared_read = pd.DataFrame(prep_read)
     prepared_time = pd.DataFrame(prep_time)
 
-    sns.lineplot(data = prepared_read, marker="o", dashes=False).set(ylabel = "Broj čitanja")
+    sns.lineplot(data = prepared_read, marker="o", dashes=False).set(ylabel = "Broj čitanja", xlabel="Offset (podijeljen sa 100 000)")
     plt.savefig("scripts/graphs/" + file_name + "_reads.png")
 
     plt.close()
-    sns.lineplot(data = prepared_time, marker="o", dashes=False).set(ylabel = "Vrijeme izvršavanja (s)")
+    sns.lineplot(data = prepared_time, marker="o", dashes=False).set(ylabel = "Vrijeme izvršavanja (s)", xlabel="Offset (podijeljen sa 100 000)")
     plt.savefig("scripts/graphs/" + file_name + "_time.png")
 
 def plot_ind_prim(data, file_name):
@@ -67,11 +67,11 @@ def plot_ind_prim(data, file_name):
     prepared_read = pd.DataFrame(prep_read)
     prepared_time = pd.DataFrame(prep_time)
 
-    sns.lineplot(data = prepared_read, marker="o", dashes=False).set(ylabel = "Broj čitanja")
+    sns.lineplot(data = prepared_read, marker="o", dashes=False).set(ylabel = "Broj čitanja", xlabel="Offset (podijeljen sa 100 000)")
     plt.savefig("scripts/graphs/" + file_name + "_reads.png")
 
     plt.close()
-    sns.lineplot(data = prepared_time, marker="o", dashes=False).set(ylabel = "Vrijeme izvršavanja (s)")
+    sns.lineplot(data = prepared_time, marker="o", dashes=False).set(ylabel = "Vrijeme izvršavanja (s)", xlabel="Offset (podijeljen sa 100 000)")
     plt.savefig("scripts/graphs/" + file_name + "_time.png")
 
 def plot_range(data, file_name):
